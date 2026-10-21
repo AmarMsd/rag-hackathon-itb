@@ -1,606 +1,176 @@
 import React, { useEffect, useState } from "react";
-import {
-  IconBookOpen,
-  IconUpload,
-  IconSearch,
-  IconDownload,
-  IconTrash,
-  IconCheck,
-  IconX,
-  IconAlertTriangle,
-  IconEye,
-} from "../Icons.jsx";
 import { api } from "../api.js";
 
-const KATEGORI_OPTIONS = [
-  { id: "semua", label: "Semua Kategori" },
-  { id: "regulasi", label: "Regulasi (PD 10A dll)" },
-  { id: "manual", label: "Manual Perawatan" },
-  { id: "sop", label: "SOP & Instruksi Kerja" },
-  { id: "riwayat_kerusakan", label: "Riwayat Kerusakan" },
-  { id: "lainnya", label: "Lainnya" },
-];
+const KATEGORI = {
+  regulasi: "Regulasi",
+  manual: "Manual",
+  sop: "SOP",
+  riwayat_kerusakan: "Riwayat kerusakan",
+  lainnya: "Lainnya",
+};
+const STATUS_DOK = { draf: "Draf, belum dipakai agen", aktif: "Aktif, dipakai agen", nonaktif: "Nonaktif", gagal: "Gagal dibaca" };
+const LAMPU_DOK = { draf: "kuning", aktif: "hijau", nonaktif: "mati", gagal: "merah" };
 
-const STATUS_OPTIONS = [
-  { id: "semua", label: "Semua Status" },
-  { id: "aktif", label: "Aktif" },
-  { id: "draf", label: "Draf" },
-  { id: "nonaktif", label: "Nonaktif" },
-  { id: "gagal", label: "Gagal" },
-];
-
-export default function DokumenPage({ user }) {
-  const [dokumenList, setDokumenList] = useState([]);
-  const [filterStatus, setFilterStatus] = useState("semua");
-  const [filterKategori, setFilterKategori] = useState("semua");
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Upload Form Modal
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadCategory, setUploadCategory] = useState("regulasi");
-  const [uploadFile, setUploadFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-
-  // Inspect Draft / Chunks Modal
-  const [inspectingDoc, setInspectingDoc] = useState(null);
-  const [chunks, setChunks] = useState([]);
-  const [isInspecting, setIsInspecting] = useState(false);
-
-  // Test Search Tool Modal
-  const [testingDoc, setTestingDoc] = useState(null);
-  const [testQuery, setTestQuery] = useState("");
-  const [testResults, setTestResults] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
-
-  const canManage = user?.peran === "pengelola" || user?.peran === "admin";
-
-  const loadDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.dokumen(
-        filterStatus !== "semua" ? filterStatus : null,
-        filterKategori !== "semua" ? filterKategori : null
-      );
-      setDokumenList(res || []);
-    } catch (err) {
-      console.error("Gagal memuat dokumen:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+function Periksa({ dok, onTutup }) {
+  const [potongan, setPotongan] = useState(null);
+  const [q, setQ] = useState("");
+  const [hasil, setHasil] = useState(null);
+  const [galat, setGalat] = useState("");
 
   useEffect(() => {
-    loadDocuments();
-  }, [filterStatus, filterKategori]);
+    api.detailDokumen(dok.id, 0, 15).then((d) => setPotongan(d.potongan || [])).catch((e) => setGalat(e.message));
+  }, [dok.id]);
 
-  const handleUploadSubmit = async (e) => {
+  async function uji(e) {
     e.preventDefault();
-    if (!uploadFile || !uploadTitle.trim()) {
-      setUploadError("Pilih file dan lengkapi judul dokumen.");
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadError("");
+    if (!q.trim()) return;
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("judul", uploadTitle.trim());
-      formData.append("kategori", uploadCategory);
-
-      await api.unggahDokumen(formData);
-      setIsUploadOpen(false);
-      setUploadTitle("");
-      setUploadFile(null);
-      loadDocuments();
+      setHasil((await api.ujiDokumen(dok.id, q.trim())).hasil || []);
     } catch (err) {
-      setUploadError(err.message || "Gagal mengunggah dokumen.");
-    } finally {
-      setIsUploading(false);
+      setGalat(err.message);
     }
-  };
-
-  const handleToggleStatus = async (doc, newStatus) => {
-    try {
-      if (newStatus === "aktif") {
-        await api.aktifkanDokumen(doc.id);
-      } else {
-        await api.nonaktifkanDokumen(doc.id);
-      }
-      loadDocuments();
-    } catch (err) {
-      alert("Gagal mengubah status: " + err.message);
-    }
-  };
-
-  const handleDelete = async (docId) => {
-    if (!confirm("Hapus dokumen ini dan seluruh potongannya?")) return;
-    try {
-      await api.hapusDokumen(docId);
-      loadDocuments();
-    } catch (err) {
-      alert("Gagal menghapus: " + err.message);
-    }
-  };
-
-  const handleOpenInspect = async (doc) => {
-    setInspectingDoc(doc);
-    setIsInspecting(true);
-    try {
-      const detail = await api.detailDokumen(doc.id, 0, 15);
-      setChunks(detail?.potongan || []);
-    } catch (err) {
-      console.error("Gagal memuat potongan draf:", err);
-      setChunks([]);
-    } finally {
-      setIsInspecting(false);
-    }
-  };
-
-  const handleRunSearchTest = async (e) => {
-    if (e) e.preventDefault();
-    if (!testQuery.trim() || !testingDoc) return;
-
-    setIsTesting(true);
-    try {
-      const res = await api.ujiDokumen(testingDoc.id, testQuery.trim());
-      setTestResults(res?.hasil || []);
-    } catch (err) {
-      alert("Gagal menguji pencarian: " + err.message);
-    } finally {
-      setIsTesting(false);
-    }
-  };
+  }
 
   return (
-    <div className="page-view dokumen-page">
-      {/* Page Header */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Dokumen Pengetahuan</h1>
-          <p className="page-desc">
-            Basis pengetahuan regulasi PD 10A, manual pemeliharaan elektrik, dan SOP yang dirujuk oleh agen AI Sintelis.
-          </p>
-        </div>
-
-        {canManage && (
-          <button
-            type="button"
-            className="btn-primary-action"
-            onClick={() => setIsUploadOpen(true)}
-            title="Unggah dokumen PDF, TXT, atau Markdown baru"
-          >
-            <IconUpload className="btn-icon-left" />
-            <span>Unggah Dokumen</span>
-          </button>
+    <section className="wg-panel" aria-label={`Periksa ${dok.judul}`}>
+      <header>
+        <h2>{dok.judul}</h2>
+        <p>{dok.jumlah_halaman} halaman, {dok.jumlah_potongan} potongan</p>
+        <button type="button" className="wg-tombol kecil wg-kanan" onClick={onTutup}>Tutup</button>
+      </header>
+      <div className="wg-panel-isi">
+        <form className="wg-baris-aksi" onSubmit={uji}>
+          <input className="wg-input" style={{ flex: 1 }} placeholder="Uji pencarian, misalnya: batas waktu pembalikan wesel" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="wg-tombol" type="submit">Cari di dokumen ini</button>
+        </form>
+        {galat && <p className="wg-galat">{galat}</p>}
+        {hasil && (
+          <ol className="wg-potongan">
+            {hasil.length === 0 && <li>Tidak ada potongan yang cocok. Agen juga tidak akan menemukannya dengan kata kunci ini.</li>}
+            {hasil.map((h, i) => <li key={i}><b>Halaman {h.halaman}</b>{h.isi}</li>)}
+          </ol>
+        )}
+        <h3 className="wg-subjudul">Potongan pertama</h3>
+        {!potongan ? <p className="wg-sedang">Memuat</p> : (
+          <ol className="wg-potongan">
+            {potongan.map((p) => <li key={p.urutan}><b>Halaman {p.halaman}</b>{p.isi}</li>)}
+          </ol>
         )}
       </div>
+    </section>
+  );
+}
 
-      {/* Filter Tabs & Status Bar */}
-      <div className="dokumen-filter-bar">
-        <div className="filter-group">
-          <label className="filter-label">Kategori:</label>
-          <select
-            className="filter-select"
-            value={filterKategori}
-            onChange={(e) => setFilterKategori(e.target.value)}
-          >
-            {KATEGORI_OPTIONS.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </div>
+export default function DokumenPage({ user }) {
+  const [daftar, setDaftar] = useState(null);
+  const [status, setStatus] = useState("semua");
+  const [kategori, setKategori] = useState("semua");
+  const [galat, setGalat] = useState("");
+  const [periksa, setPeriksa] = useState(null);
+  const [unggah, setUnggah] = useState({ buka: false, judul: "", kategori: "manual", file: null, kirim: false, galat: "" });
+  const bolehKelola = user?.peran === "pengelola" || user?.peran === "admin";
 
-        <div className="filter-group">
-          <label className="filter-label">Status:</label>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
+  const muat = () => api.dokumen(status, kategori).then(setDaftar).catch((e) => setGalat(e.message));
+  useEffect(() => { muat(); }, [status, kategori]);
 
-        <div className="filter-stats-info">
-          <span>Menampilkan <strong>{dokumenList.length}</strong> dokumen</span>
-        </div>
-      </div>
+  async function kirimUnggah(e) {
+    e.preventDefault();
+    if (!unggah.file || !unggah.judul.trim()) return setUnggah((u) => ({ ...u, galat: "Pilih file dan isi judul." }));
+    setUnggah((u) => ({ ...u, kirim: true, galat: "" }));
+    try {
+      const fd = new FormData();
+      fd.append("file", unggah.file);
+      fd.append("judul", unggah.judul.trim());
+      fd.append("kategori", unggah.kategori);
+      await api.unggahDokumen(fd);
+      setUnggah({ buka: false, judul: "", kategori: "manual", file: null, kirim: false, galat: "" });
+      muat();
+    } catch (err) {
+      setUnggah((u) => ({ ...u, kirim: false, galat: err.message }));
+    }
+  }
 
-      {/* Dokumen Cards Grid */}
-      <div className="dokumen-cards-grid">
-        {isLoading ? (
-          <div className="card loading-card-center">
-            <div className="loading-spinner" />
-            <p>Memuat daftar dokumen pengetahuan…</p>
-          </div>
-        ) : dokumenList.length > 0 ? (
-          dokumenList.map((doc) => {
-            const isFailed = doc.status === "gagal";
-            const isActive = doc.status === "aktif";
-            const isDraft = doc.status === "draf";
+  async function aksi(fn, pesanGagal) {
+    try { await fn(); muat(); } catch (err) { setGalat(`${pesanGagal}: ${err.message}`); }
+  }
 
-            return (
-              <div key={doc.id} className={`dokumen-card status-${doc.status}`}>
-                <div className="doc-card-header">
-                  <div className="doc-category-badge">
-                    <span>{doc.kategori?.toUpperCase()}</span>
-                  </div>
-                  <span className={`status-pill ${doc.status}`}>
-                    {doc.status?.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="doc-card-body">
-                  <h3 className="doc-title">{doc.judul}</h3>
-                  <div className="doc-file-info">
-                    <span className="file-name">{doc.nama_file || "File berkas"}</span>
-                    <span className="file-meta">
-                      {doc.jumlah_halaman != null && `${doc.jumlah_halaman} hlm • `}
-                      {doc.jumlah_potongan != null && `${doc.jumlah_potongan} potongan • `}
-                      {doc.ukuran ? `${Math.round(doc.ukuran / 1024)} KB` : ""}
-                    </span>
-                  </div>
-
-                  {/* Failed document reason */}
-                  {isFailed && doc.pesan && (
-                    <div className="doc-failed-banner">
-                      <IconAlertTriangle className="icon-tiny" />
-                      <span>{doc.pesan}</span>
-                    </div>
-                  )}
-
-                  <div className="doc-uploader-meta">
-                    Diunggah oleh <strong>{doc.diunggah_oleh || "pengelola"}</strong> •{" "}
-                    {doc.diunggah_pada ? doc.diunggah_pada.slice(0, 10) : "Tersimpan"}
-                  </div>
-                </div>
-
-                {/* Actions Footer */}
-                <div className="doc-card-footer">
-                  <div className="doc-actions-left">
-                    {/* Unduh file asli */}
-                    <a
-                      href={api.unduhDokumenUrl(doc.id)}
-                      download
-                      className="doc-action-btn download"
-                      title="Unduh berkas asli dokumen ini"
-                    >
-                      <IconDownload className="icon-tiny" />
-                      <span>Unduh</span>
-                    </a>
-
-                    {/* Periksa draf cuplikan potongan */}
-                    {!isFailed && (
-                      <button
-                        type="button"
-                        className="doc-action-btn inspect"
-                        onClick={() => handleOpenInspect(doc)}
-                        title="Lihat cuplikan potongan teks dokumen"
-                      >
-                        <IconEye className="icon-tiny" />
-                        <span>Periksa Draf</span>
-                      </button>
-                    )}
-
-                    {/* Uji pencarian */}
-                    {!isFailed && (
-                      <button
-                        type="button"
-                        className="doc-action-btn test"
-                        onClick={() => {
-                          setTestingDoc(doc);
-                          setTestResults(null);
-                          setTestQuery("");
-                        }}
-                        title="Uji pencarian semantik pada dokumen ini sebelum aktif"
-                      >
-                        <IconSearch className="icon-tiny" />
-                        <span>Uji Cari</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Management buttons for pengelola & admin */}
-                  {canManage && (
-                    <div className="doc-actions-right">
-                      {!isFailed && (
-                        isActive ? (
-                          <button
-                            type="button"
-                            className="doc-status-btn deactivate"
-                            onClick={() => handleToggleStatus(doc, "nonaktif")}
-                            title="Nonaktifkan dokumen dari pemakaian agen"
-                          >
-                            Nonaktifkan
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="doc-status-btn activate"
-                            onClick={() => handleToggleStatus(doc, "aktif")}
-                            title="Aktifkan dokumen untuk dirujuk agen AI"
-                          >
-                            Aktifkan
-                          </button>
-                        )
-                      )}
-
-                      <button
-                        type="button"
-                        className="doc-status-btn delete"
-                        onClick={() => handleDelete(doc.id)}
-                        title="Hapus dokumen ini secara permanen"
-                      >
-                        <IconTrash className="icon-tiny" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="card empty-doc-card">
-            <IconBookOpen className="empty-icon" />
-            <h3>Tidak Ada Dokumen</h3>
-            <p>Belum ada dokumen yang sesuai dengan filter kategori atau status yang dipilih.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Modal 1: Form Unggah Dokumen */}
-      {isUploadOpen && (
-        <div className="modal-backdrop" onClick={() => setIsUploadOpen(false)}>
-          <div
-            className="modal-card upload-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Unggah Dokumen Pengetahuan"
-          >
-            <div className="modal-header">
-              <h2 className="modal-title">Unggah Dokumen Pengetahuan Baru</h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setIsUploadOpen(false)}
-              >
-                <IconX className="close-icon" />
-              </button>
+  return (
+    <>
+      {bolehKelola && unggah.buka && (
+        <section className="wg-panel">
+          <header><h2>Unggah dokumen</h2><p>PDF, TXT, atau MD sampai 20 MB. Dokumen masuk sebagai draf dan baru dipakai agen setelah diaktifkan.</p></header>
+          <form className="wg-panel-isi wg-form" onSubmit={kirimUnggah}>
+            <label>Judul<input className="wg-input" value={unggah.judul} onChange={(e) => setUnggah({ ...unggah, judul: e.target.value })} placeholder="Contoh: Manual pemeriksaan penggerak wesel" /></label>
+            <label>Kategori
+              <select className="wg-input" value={unggah.kategori} onChange={(e) => setUnggah({ ...unggah, kategori: e.target.value })}>
+                {Object.entries(KATEGORI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <label>File<input className="wg-input" type="file" accept=".pdf,.txt,.md" onChange={(e) => setUnggah({ ...unggah, file: e.target.files?.[0] || null })} /></label>
+            {unggah.galat && <p className="wg-galat">{unggah.galat}</p>}
+            <div className="wg-baris-aksi">
+              <button className="wg-tombol utama" type="submit" disabled={unggah.kirim}>{unggah.kirim ? "Mengunggah" : "Unggah"}</button>
+              <button className="wg-tombol" type="button" onClick={() => setUnggah({ ...unggah, buka: false })}>Batal</button>
             </div>
-
-            <form onSubmit={handleUploadSubmit} className="modal-body">
-              {uploadError && (
-                <div className="modal-error-alert">
-                  <IconAlertTriangle className="icon-tiny" />
-                  <span>{uploadError}</span>
-                </div>
-              )}
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="doc-title">
-                  Judul Dokumen <span className="req-star">*</span>
-                </label>
-                <input
-                  id="doc-title"
-                  type="text"
-                  className="field-input"
-                  placeholder="Contoh: Manual Pemeliharaan Wesel Elektrik Alstom 2026"
-                  value={uploadTitle}
-                  onChange={(e) => setUploadTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="doc-cat">
-                  Kategori Dokumen <span className="req-star">*</span>
-                </label>
-                <select
-                  id="doc-cat"
-                  className="field-select"
-                  value={uploadCategory}
-                  onChange={(e) => setUploadCategory(e.target.value)}
-                >
-                  <option value="regulasi">Regulasi (PD 10A, UU Perkeretaapian)</option>
-                  <option value="manual">Manual Pemeliharaan Pabrikan</option>
-                  <option value="sop">SOP &amp; Instruksi Kerja (IK)</option>
-                  <option value="riwayat_kerusakan">Riwayat Kerusakan &amp; Investigasi</option>
-                  <option value="lainnya">Lainnya</option>
-                </select>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="doc-file">
-                  Pilih Berkas Dokumen (PDF, TXT, MD maks 20 MB) <span className="req-star">*</span>
-                </label>
-                <input
-                  id="doc-file"
-                  type="file"
-                  className="field-file-input"
-                  accept=".pdf,.txt,.md"
-                  onChange={(e) => setUploadFile(e.target.files[0] || null)}
-                  required
-                />
-                <span className="field-hint">
-                  Sistem akan mengekstrak teks per halaman dan memotongnya secara otomatis ke status <strong>DRAF</strong>.
-                </span>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary-custom"
-                  onClick={() => setIsUploadOpen(false)}
-                  disabled={isUploading}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-action"
-                  disabled={isUploading || !uploadFile || !uploadTitle.trim()}
-                >
-                  {isUploading ? "Mengunggah & Memproses…" : "Unggah & Simpan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </section>
       )}
 
-      {/* Modal 2: Periksa Draf (Cuplikan Potongan) */}
-      {inspectingDoc && (
-        <div className="modal-backdrop" onClick={() => setInspectingDoc(null)}>
-          <div
-            className="modal-card inspect-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Periksa Draf Dokumen"
-          >
-            <div className="modal-header">
-              <div>
-                <h2 className="modal-title">Periksa Draf: {inspectingDoc.judul}</h2>
-                <p className="modal-subheading">
-                  Menampilkan 10 potongan teks awal yang diekstrak untuk verifikasi konten.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setInspectingDoc(null)}
-              >
-                <IconX className="close-icon" />
-              </button>
-            </div>
+      {periksa && <Periksa dok={periksa} onTutup={() => setPeriksa(null)} />}
 
-            <div className="modal-body inspect-scroll-body">
-              {isInspecting ? (
-                <div className="loading-spinner-box">
-                  <div className="loading-spinner" />
-                  <p>Memuat potongan draf…</p>
-                </div>
-              ) : chunks.length > 0 ? (
-                <div className="chunks-list">
-                  {chunks.map((c, idx) => (
-                    <div key={idx} className="chunk-item-card">
-                      <div className="chunk-header">
-                        <span className="chunk-number">Potongan #{c.urutan ?? idx + 1}</span>
-                        {c.halaman != null && (
-                          <span className="chunk-page">Halaman {c.halaman}</span>
+      <section className="wg-panel">
+        <header>
+          <h2>Dokumen pengetahuan</h2>
+          <p>Dokumen aktif dicari agen lewat cari_dokumen. Manual contoh dicari terpisah lewat cari_manual.</p>
+          <div className="wg-kanan wg-baris-aksi">
+            <select className="wg-input" value={kategori} onChange={(e) => setKategori(e.target.value)} aria-label="Kategori">
+              <option value="semua">Semua kategori</option>
+              {Object.entries(KATEGORI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            <select className="wg-input" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
+              <option value="semua">Semua status</option>
+              {Object.keys(STATUS_DOK).map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
+            </select>
+            {bolehKelola && !unggah.buka && <button className="wg-tombol utama" type="button" onClick={() => setUnggah({ ...unggah, buka: true })}>Unggah dokumen</button>}
+          </div>
+        </header>
+        {galat && <p className="wg-galat wg-panel-isi" role="alert">{galat}</p>}
+        {!daftar ? <p className="wg-sedang wg-panel-isi">Memuat</p> : daftar.length === 0 ? (
+          <p className="wg-kosong">Belum ada dokumen dengan filter ini.</p>
+        ) : (
+          <div className="wg-tabel-bungkus">
+            <table className="wg-tabel">
+              <thead><tr><th>Dokumen</th><th>Kategori</th><th>Status</th><th className="wg-angka">Halaman</th><th>Diunggah</th><th /></tr></thead>
+              <tbody>
+                {daftar.map((d) => (
+                  <tr key={d.id}>
+                    <td style={{ maxWidth: 420 }}><b>{d.judul}</b>{d.status === "gagal" && <div className="wg-galat">{d.pesan}</div>}</td>
+                    <td>{KATEGORI[d.kategori] || d.kategori}</td>
+                    <td><span className="wg-status" style={{ fontWeight: 500 }}><span className={`wg-lampu ${LAMPU_DOK[d.status]}`} />{STATUS_DOK[d.status] || d.status}</span></td>
+                    <td className="wg-angka">{d.jumlah_halaman ?? "–"}</td>
+                    <td className="wg-redup">{d.diunggah_oleh}, {new Date(d.diunggah_pada).toLocaleDateString("id-ID")}</td>
+                    <td>
+                      <div className="wg-baris-aksi" style={{ justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                        <button className="wg-tombol kecil" type="button" onClick={() => setPeriksa(d)}>Periksa</button>
+                        {d.bisa_diunduh && <a className="wg-tombol kecil" href={api.unduhDokumenUrl(d.id)}>Unduh</a>}
+                        {bolehKelola && d.status !== "aktif" && d.status !== "gagal" && (
+                          <button className="wg-tombol kecil utama" type="button" onClick={() => aksi(() => api.aktifkanDokumen(d.id), "Gagal mengaktifkan")}>Aktifkan</button>
+                        )}
+                        {bolehKelola && d.status === "aktif" && (
+                          <button className="wg-tombol kecil" type="button" onClick={() => aksi(() => api.nonaktifkanDokumen(d.id), "Gagal menonaktifkan")}>Nonaktifkan</button>
+                        )}
+                        {bolehKelola && d.diunggah_oleh !== "sistem" && (
+                          <button className="wg-tombol kecil bahaya" type="button" onClick={() => window.confirm(`Hapus "${d.judul}" beserta semua potongannya?`) && aksi(() => api.hapusDokumen(d.id), "Gagal menghapus")}>Hapus</button>
                         )}
                       </div>
-                      <p className="chunk-body-text">{c.isi}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="no-chunks-note">Belum ada potongan teks yang terekstrak dari berkas ini.</p>
-              )}
-            </div>
-
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn-secondary-custom"
-                onClick={() => setInspectingDoc(null)}
-              >
-                Tutup
-              </button>
-            </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
-
-      {/* Modal 3: Uji Pencarian Sebelum Aktif */}
-      {testingDoc && (
-        <div className="modal-backdrop" onClick={() => setTestingDoc(null)}>
-          <div
-            className="modal-card test-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Uji Pencarian Dokumen"
-          >
-            <div className="modal-header">
-              <div>
-                <h2 className="modal-title">Uji Pencarian: {testingDoc.judul}</h2>
-                <p className="modal-subheading">
-                  Coba cari kata kunci untuk memverifikasi potongan yang akan ditemukan agen sebelum dokumen diaktifkan.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setTestingDoc(null)}
-              >
-                <IconX className="close-icon" />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <form onSubmit={handleRunSearchTest} className="test-search-form">
-                <input
-                  type="text"
-                  className="test-search-input"
-                  placeholder="Ketik kata kunci (misal: 'batas pembalikan', 'toleransi celah', 'akselerometer')..."
-                  value={testQuery}
-                  onChange={(e) => setTestQuery(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  className="btn-primary-action"
-                  disabled={isTesting || !testQuery.trim()}
-                >
-                  {isTesting ? "Mencari…" : "Uji Cari"}
-                </button>
-              </form>
-
-              {testResults && (
-                <div className="test-results-container">
-                  <h3 className="results-heading">
-                    Hasil Uji Pencarian ({testResults.length} potongan ditemukan):
-                  </h3>
-                  {testResults.length > 0 ? (
-                    <div className="test-results-list">
-                      {testResults.map((r, i) => (
-                        <div key={i} className="test-match-card">
-                          <span className="match-page-tag">
-                            Halaman {r.halaman ?? "?"}
-                          </span>
-                          <p className="match-snippet">{r.isi}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="no-match-note">
-                      Tidak ditemukan potongan teks yang cocok dengan kata kunci "{testQuery}".
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn-secondary-custom"
-                onClick={() => setTestingDoc(null)}
-              >
-                Selesai
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </section>
+    </>
   );
 }

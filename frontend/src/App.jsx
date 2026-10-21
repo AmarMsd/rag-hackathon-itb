@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "./api.js";
-import Sidebar from "./components/Sidebar.jsx";
-import Header from "./components/Header.jsx";
 import Login from "./components/Login.jsx";
-import { IconLogo } from "./Icons.jsx";
-
-// Page Views (Navigasi Terarah & Tanpa Card Absolute)
+import { Nav, Atas, HALAMAN } from "./components/Kerangka.jsx";
 import BerandaPage from "./pages/BerandaPage.jsx";
 import DetailWeselPage from "./pages/DetailWeselPage.jsx";
 import TanyaAgenPage from "./pages/TanyaAgenPage.jsx";
@@ -17,250 +13,128 @@ import ProfilPage from "./pages/ProfilPage.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [loginMessage, setLoginMessage] = useState("");
+  const [cekSesi, setCekSesi] = useState(true);
+  const [pesanMasuk, setPesanMasuk] = useState("");
 
   const [wesel, setWesel] = useState([]);
   const [pilihan, setPilihan] = useState(null);
   const [workOrders, setWorkOrders] = useState([]);
-  const [agen, setAgen] = useState({ aktif: true });
+  const [agen, setAgen] = useState({ aktif: true, berjalan: 0 });
   const [putus, setPutus] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [sudahMuat, setSudahMuat] = useState(false);
+  const [halaman, setHalaman] = useState("beranda");
+  const [chatAwal, setChatAwal] = useState(null);
 
-  // Navigasi Halaman Utama (Default: 'beranda')
-  const [activeNav, setActiveNav] = useState("beranda");
-
-  // State parameter untuk navigasi antar halaman (misal: buka chat dengan prompt/sesi tertentu)
-  const [chatInitData, setChatInitData] = useState(null);
-
-  // 1. Initial auth verification on page load (GET /api/saya)
   useEffect(() => {
-    async function verifikasiSesi() {
-      try {
-        const u = await api.saya();
-        setUser(u);
-      } catch (err) {
+    api.saya()
+      .then(setUser)
+      .catch((err) => {
         setUser(null);
-        if (err.status === 401) {
-          setLoginMessage("Sesi habis atau belum masuk. Silakan masuk lagi.");
-        }
-      } finally {
-        setCheckingAuth(false);
-      }
-    }
-    verifikasiSesi();
+        if (err.status !== 401) setPesanMasuk(err.message);
+      })
+      .finally(() => setCekSesi(false));
   }, []);
 
   const muat = useCallback(async () => {
     try {
-      const [w, wo, a] = await Promise.all([
-        api.wesel(),
-        api.workOrders(),
-        api.agen(),
-      ]);
+      const [w, wo, a] = await Promise.all([api.wesel(), api.workOrders(), api.agen()]);
       setWesel(w || []);
       setWorkOrders(wo || []);
-      setAgen(a || { aktif: true });
+      setAgen(a || { aktif: true, berjalan: 0 });
       setPutus("");
-
-      // Default switch selection
-      setPilihan((p) => p ?? w.find((x) => x.status !== "Normal")?.wesel_id ?? w[0]?.wesel_id);
+      setPilihan((p) => p ?? (w || []).find((x) => x.status !== "Normal")?.wesel_id ?? w?.[0]?.wesel_id ?? null);
     } catch (err) {
       if (err.status === 401) {
         setUser(null);
-        setLoginMessage("Sesi berakhir. Silakan masuk lagi.");
+        setPesanMasuk("Sesi berakhir. Masuk lagi untuk melanjutkan.");
         return;
       }
-      setPutus("Tidak tersambung ke gateway. Pastikan server di Raspberry Pi berjalan.");
+      setPutus(err.status === 0
+        ? "Gateway tidak terjangkau. Angka di layar adalah data terakhir yang berhasil dimuat."
+        : err.message);
+    } finally {
+      setSudahMuat(true);
     }
   }, []);
 
-  // 2. Poll data periodically once authenticated
   useEffect(() => {
     if (!user) return;
     muat();
-    const t = setInterval(muat, 5000); // Polling data deteksi tiap 5 detik
+    const t = setInterval(muat, 5000);
     return () => clearInterval(t);
   }, [user, muat]);
 
-  async function handleToggleAgent() {
-    if (user?.peran === "pengamat" || user?.peran === "pengelola") return;
+  async function ubahAgen() {
     try {
-      const updated = await api.ubahAgen(agen.aktif ? "hentikan" : "aktifkan");
-      setAgen(updated);
+      setAgen(await api.ubahAgen(agen.aktif ? "hentikan" : "aktifkan"));
     } catch (err) {
-      alert("Gagal mengubah status agen: " + (err.message || ""));
+      setPutus(`Status agen tidak berubah: ${err.message}`);
     }
   }
 
-  async function handleLogout() {
-    try {
-      await api.logout();
-    } catch (err) {
-      console.error("Gagal logout:", err);
-    } finally {
-      setUser(null);
-      setLoginMessage("");
-    }
+  async function keluar() {
+    await api.logout().catch(() => {});
+    setUser(null);
+    setPesanMasuk("");
   }
 
-  // Navigasi Terarah antar halaman
-  const handleNavigate = (pageId, params = {}) => {
-    if (params.weselId) {
-      setPilihan(params.weselId);
+  function pindah(id, param = {}) {
+    if (param.weselId) setPilihan(param.weselId);
+    if (param.prompt || param.sessionId || param.history) {
+      setChatAwal({ prompt: param.prompt || null, sessionId: param.sessionId || null, history: param.history || null });
     }
-    if (params.prompt || params.sessionId || params.history) {
-      setChatInitData({
-        prompt: params.prompt || null,
-        sessionId: params.sessionId || null,
-        history: params.history || null,
-      });
-    }
-    setActiveNav(pageId);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // 3. Loading state saat memeriksa sesi login awal
-  if (checkingAuth) {
-    return (
-      <div className="auth-loading-screen">
-        <div className="auth-loading-card">
-          <div className="login-logo-badge">
-            <IconLogo className="login-logo-icon" />
-          </div>
-          <div className="login-spinner" />
-          <span className="auth-loading-text">Memeriksa sesi login…</span>
-        </div>
-      </div>
-    );
+    setHalaman(id);
+    window.scrollTo({ top: 0 });
   }
 
-  // 4. Jika belum masuk, tampilkan halaman Login
+  if (cekSesi) return <div className="wg-masuk"><p className="wg-sedang">Memeriksa sesi</p></div>;
+
   if (!user) {
-    return (
-      <Login
-        initialMessage={loginMessage}
-        onLoginSuccess={(userData) => {
-          setUser(userData);
-          setLoginMessage("");
-          muat();
-        }}
-      />
-    );
+    return <Login initialMessage={pesanMasuk} onLoginSuccess={(u) => { setUser(u); setPesanMasuk(""); }} />;
   }
 
-  // Filter wesel jika ada search query
-  const displayedWesel = wesel.filter((w) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      w.wesel_id?.toLowerCase().includes(q) ||
-      w.status?.toLowerCase().includes(q) ||
-      w.kondisi_kandidat?.toLowerCase().includes(q) ||
-      w.lokasi?.toLowerCase().includes(q)
-    );
-  });
+  const menunggu = workOrders.filter((w) => w.status?.startsWith("MENUNGGU")).length;
+  const judul = halaman === "detail" ? "Detail wesel" : HALAMAN.find((h) => h.id === halaman)?.judul;
 
   return (
-    <div className="dashboard-container">
-      {/* Left Sidebar Rail (Navigasi Berdasarkan Peran) */}
-      <Sidebar
-        activeNav={activeNav}
-        onSelectNav={(id) => handleNavigate(id)}
-        user={user}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Viewport */}
-      <div className="main-viewport">
-        {/* Top Header (Pencarian, Koneksi, Kalender, Notifikasi, Sakelar Agen, Profil) */}
-        <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          isAgentActive={agen.aktif}
-          onToggleAgent={handleToggleAgent}
-          user={user}
-          onLogout={handleLogout}
-          onSelectWesel={(id) => handleNavigate("detail", { weselId: id })}
-          onNavigate={handleNavigate}
-        />
-
-        {/* Read-Only Banner for Pengamat Account */}
-        {user.peran === "pengamat" && (
-          <div className="read-only-banner">
-            <span className="read-only-tag">Mode Pengamat</span>
-            <span>
-              Anda masuk dengan hak akses baca (<em>read-only</em>). Anda dapat memantau telemetri, grafik tren, dan laporan, namun tidak dapat mengubah status atau memutuskan work order.
-            </span>
-          </div>
-        )}
-
-        {/* Connection Offline Banner (if any) */}
+    <div className="wg-app">
+      <Nav aktif={halaman} onPilih={(id) => pindah(id)} user={user} agen={agen} onUbahAgen={ubahAgen} menunggu={menunggu} />
+      <div className="wg-utama">
+        <Atas judul={judul} user={user} onNavigate={pindah} onSelectWesel={(id) => pindah("detail", { weselId: id })} />
         {putus && (
-          <div className="connection-banner">
-            <span className="banner-dot" />
-            <span>{putus}</span>
-            <button type="button" className="banner-retry-btn" onClick={muat}>
-              Coba lagi
-            </button>
+          <div className="wg-pita putus" role="alert">
+            <span className="wg-lampu merah" aria-hidden="true" />
+            {putus}
+            <button type="button" className="wg-tombol kecil" onClick={muat}>Coba lagi</button>
           </div>
         )}
-
-        {/* Dynamic Page Views: Berpindah halaman bersih tanpa modal/card absolute */}
-        {activeNav === "beranda" && (
-          <BerandaPage
-            weselList={displayedWesel}
-            onSelectWesel={(id) => setPilihan(id)}
-            onNavigate={handleNavigate}
-            isAgentActive={agen.aktif}
-            user={user}
-          />
+        {user.peran === "pengamat" && (
+          <div className="wg-pita pengamat">
+            Akun pengamat hanya bisa melihat. Keputusan work order dan kendali agen tidak tersedia.
+          </div>
         )}
-
-        {activeNav === "detail" && (
-          <DetailWeselPage
-            weselList={displayedWesel}
-            selectedWeselId={pilihan}
-            onSelectWesel={(id) => setPilihan(id)}
-            onNavigate={handleNavigate}
-            isAgentActive={agen.aktif}
-            user={user}
-          />
-        )}
-
-        {activeNav === "chat" && (
-          <TanyaAgenPage
-            initialSessionId={chatInitData?.sessionId}
-            initialPrompt={chatInitData?.prompt}
-            initialHistory={chatInitData?.history}
-            isAgentActive={agen.aktif}
-            user={user}
-          />
-        )}
-
-        {activeNav === "workorders" && (
-          <WorkOrdersPage
-            workOrders={workOrders}
-            onRefresh={muat}
-            user={user}
-          />
-        )}
-
-        {activeNav === "laporan" && (
-          <LaporanHarianPage />
-        )}
-
-        {activeNav === "dokumen" && (
-          <DokumenPage user={user} />
-        )}
-
-        {activeNav === "pengguna" && (
-          <PenggunaPage currentUser={user} />
-        )}
-
-        {activeNav === "profil" && (
-          <ProfilPage user={user} onLogout={handleLogout} />
-        )}
+        <main className="wg-isi">
+          {halaman === "beranda" && (
+            <BerandaPage wesel={wesel} workOrders={workOrders} sudahMuat={sudahMuat} onNavigate={pindah} />
+          )}
+          {halaman === "detail" && (
+            <DetailWeselPage wesel={wesel} pilihan={pilihan} onPilih={setPilihan} agen={agen} user={user} onNavigate={pindah} onSelesaiAnalisis={muat} />
+          )}
+          {halaman === "chat" && (
+            <TanyaAgenPage
+              initialSessionId={chatAwal?.sessionId}
+              initialPrompt={chatAwal?.prompt}
+              initialHistory={chatAwal?.history}
+              isAgentActive={agen.aktif}
+              user={user}
+            />
+          )}
+          {halaman === "workorders" && <WorkOrdersPage workOrders={workOrders} onRefresh={muat} user={user} onNavigate={pindah} />}
+          {halaman === "laporan" && <LaporanHarianPage />}
+          {halaman === "dokumen" && <DokumenPage user={user} />}
+          {halaman === "pengguna" && <PenggunaPage currentUser={user} />}
+          {halaman === "profil" && <ProfilPage user={user} onLogout={keluar} />}
+        </main>
       </div>
     </div>
   );

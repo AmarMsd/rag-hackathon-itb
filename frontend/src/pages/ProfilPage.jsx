@@ -1,197 +1,60 @@
 import React, { useState } from "react";
-import {
-  IconKey,
-  IconShield,
-  IconCheck,
-  IconAlertTriangle,
-} from "../Icons.jsx";
 import { api } from "../api.js";
+import { PERAN } from "../kondisi.js";
 
-const ROLE_DESCRIPTIONS = {
-  admin: "Administrator memiliki akses penuh ke seluruh sistem: pemantauan sinyal, analisis agen, pengambilan keputusan work order, pengawasan audit, dan pengelolaan akun pengguna.",
-  petugas: "Petugas Sintelis bertugas memantau telemetri wesel, menjalankan analisis getaran dengan agen AI, serta menyetujui atau menolak draf Work Order di lapangan.",
-  pengelola: "Pengelola bertanggung jawab atas basis pengetahuan sistem: mengunggah dokumen regulasi/manual, memverifikasi draf potongan teks, dan menguji pencarian semantik.",
-  pengamat: "Pengamat memiliki hak akses baca (read-only) untuk memantau data telemetri, grafik tren degradasi, dan laporan stasiun tanpa izin pengubahan data.",
+const HAK = {
+  admin: "Semua tindakan operasional, termasuk mengelola akun pengguna.",
+  petugas: "Menjalankan analisis agen, bertanya ke agen, serta menyetujui atau menolak usulan work order.",
+  pengelola: "Mengunggah, memeriksa, dan mengaktifkan dokumen pengetahuan. Selain itu hanya melihat.",
+  pengamat: "Hanya melihat. Cocok untuk juri dan tamu.",
 };
 
 export default function ProfilPage({ user, onLogout }) {
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [lama, setLama] = useState("");
+  const [baru, setBaru] = useState("");
+  const [ulang, setUlang] = useState("");
+  const [pesan, setPesan] = useState({ jenis: "", teks: "" });
+  const [kirim, setKirim] = useState(false);
 
-  const handlePasswordChange = async (e) => {
+  async function ganti(e) {
     e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      setErrorMsg("Semua kolom kata sandi wajib diisi.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setErrorMsg("Kata sandi baru minimal 8 karakter.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrorMsg("Konfirmasi kata sandi baru tidak cocok.");
-      return;
-    }
-
-    setIsSubmitting(true);
+    if (baru.length < 8) return setPesan({ jenis: "galat", teks: "Kata sandi baru minimal 8 karakter." });
+    if (baru !== ulang) return setPesan({ jenis: "galat", teks: "Ulangan kata sandi baru tidak sama." });
+    setKirim(true);
     try {
-      const res = await api.gantiSandi(oldPassword, newPassword);
-      setSuccessMsg(res.pesan || "Kata sandi berhasil diganti. Sesi di perangkat lain telah dikeluarkan.");
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      const r = await api.gantiSandi(lama, baru);
+      setPesan({ jenis: "ok", teks: r.pesan || "Kata sandi diganti." });
+      setLama(""); setBaru(""); setUlang("");
     } catch (err) {
-      setErrorMsg(err.message || "Gagal mengganti kata sandi. Periksa kembali kata sandi lama Anda.");
+      setPesan({ jenis: "galat", teks: err.message });
     } finally {
-      setIsSubmitting(false);
+      setKirim(false);
     }
-  };
-
-  const peran = user?.peran || "pengamat";
+  }
 
   return (
-    <div className="page-view profil-page">
-      {/* Page Header */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Profil Pengguna &amp; Keamanan Akun</h1>
-          <p className="page-desc">
-            Informasi akun dinas Anda, hak akses operasional, serta pengaturan kata sandi akun.
-          </p>
+    <div className="wg-dua" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+      <section className="wg-panel">
+        <header><h2>{user?.nama}</h2><p>{user?.username}</p></header>
+        <div className="wg-panel-isi">
+          <dl className="wg-dl">
+            <dt>Peran</dt><dd>{PERAN[user?.peran] || user?.peran}</dd>
+            <dt>Hak akses</dt><dd style={{ fontWeight: 400 }}>{HAK[user?.peran]}</dd>
+            <dt>Sesi</dt><dd style={{ fontWeight: 400 }}>Berlaku 12 jam. Mengganti kata sandi mengeluarkan sesi di perangkat lain.</dd>
+          </dl>
+          <button type="button" className="wg-tombol" style={{ marginTop: 16 }} onClick={onLogout}>Keluar</button>
         </div>
-      </div>
-
-      <div className="detail-grid-two-col">
-        {/* Kolom 1: Kartu Informasi Akun & Peran */}
-        <div className="card profile-info-card">
-          <div className="profile-big-avatar-row">
-            <div className="profile-big-avatar">
-              {(user?.nama || "Petugas")
-                .split(" ")
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()}
-            </div>
-            <div>
-              <h2 className="profile-big-name">{user?.nama || "Petugas Sintelis"}</h2>
-              <span className="profile-username-tag">@{user?.username || "petugas"}</span>
-              <span className={`role-badge role-${peran}`}>
-                {peran.toUpperCase()}
-              </span>
-            </div>
-          </div>
-
-          <div className="profile-divider" />
-
-          <div className="profile-role-details">
-            <h3 className="section-small-title">
-              <IconShield className="icon-tiny" />
-              <span>Deskripsi Kewenangan Peran ({peran.toUpperCase()}):</span>
-            </h3>
-            <p className="profile-role-desc-text">
-              {ROLE_DESCRIPTIONS[peran] || ROLE_DESCRIPTIONS.petugas}
-            </p>
-          </div>
-
-          <div className="profile-divider" />
-
-          <div className="profile-session-safety">
-            <span className="safety-title">Keamanan Sesi:</span>
-            <p className="safety-desc">
-              Sesi login diamankan dengan token HTTP-only (Lax) yang berlaku selama 12 jam (1 sif kerja dinas). Mengganti kata sandi akan otomatis membatalkan seluruh sesi aktif di perangkat lain.
-            </p>
-          </div>
-        </div>
-
-        {/* Kolom 2: Form Ganti Kata Sandi */}
-        <div className="card change-password-card">
-          <div className="card-header-bar">
-            <div className="header-with-badge">
-              <IconKey className="icon-small" />
-              <h2 className="card-heading">Ganti Kata Sandi</h2>
-            </div>
-          </div>
-
-          <form onSubmit={handlePasswordChange} className="change-password-form">
-            {errorMsg && (
-              <div className="modal-error-alert">
-                <IconAlertTriangle className="icon-tiny" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="modal-success-alert">
-                <IconCheck className="icon-tiny" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            <div className="field-group">
-              <label className="field-label" htmlFor="old-pass">
-                Kata Sandi Lama <span className="req-star">*</span>
-              </label>
-              <input
-                id="old-pass"
-                type="password"
-                className="field-input"
-                placeholder="Masukkan kata sandi saat ini"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="field-group">
-              <label className="field-label" htmlFor="new-pass">
-                Kata Sandi Baru <span className="req-star">* (min. 8 karakter)</span>
-              </label>
-              <input
-                id="new-pass"
-                type="password"
-                className="field-input"
-                placeholder="Masukkan kata sandi baru"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="field-group">
-              <label className="field-label" htmlFor="confirm-pass">
-                Konfirmasi Kata Sandi Baru <span className="req-star">*</span>
-              </label>
-              <input
-                id="confirm-pass"
-                type="password"
-                className="field-input"
-                placeholder="Ketik ulang kata sandi baru"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-submit-row">
-              <button
-                type="submit"
-                className="btn-primary-action"
-                disabled={isSubmitting || !oldPassword || !newPassword || !confirmPassword}
-              >
-                {isSubmitting ? "Menyimpan Kata Sandi…" : "Perbarui Kata Sandi"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+      </section>
+      <section className="wg-panel">
+        <header><h2>Ganti kata sandi</h2></header>
+        <form className="wg-panel-isi wg-form" onSubmit={ganti}>
+          <label>Kata sandi lama<input className="wg-input" type="password" autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} required /></label>
+          <label>Kata sandi baru<input className="wg-input" type="password" autoComplete="new-password" value={baru} onChange={(e) => setBaru(e.target.value)} required /><small>Minimal 8 karakter.</small></label>
+          <label>Ulangi kata sandi baru<input className="wg-input" type="password" autoComplete="new-password" value={ulang} onChange={(e) => setUlang(e.target.value)} required /></label>
+          {pesan.teks && <p className={pesan.jenis === "galat" ? "wg-galat" : "wg-berhasil"} role="status">{pesan.teks}</p>}
+          <div><button className="wg-tombol utama" type="submit" disabled={kirim}>{kirim ? "Menyimpan" : "Ganti kata sandi"}</button></div>
+        </form>
+      </section>
     </div>
   );
 }

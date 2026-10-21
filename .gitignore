@@ -9,3 +9,5 @@ hardware/data/
 .env
 frontend/node_modules/*
 hackathon/frontend
+frontend/node_modules/
+frontend/dist/

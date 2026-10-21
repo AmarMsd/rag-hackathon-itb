@@ -1,456 +1,165 @@
-import React, { useState } from "react";
-import {
-  IconVolume2,
-  IconSparkles,
-  IconArrowUpRight,
-  IconAlertTriangle,
-  IconSend,
-  IconX,
-} from "../Icons.jsx";
-import Teks from "../Teks.jsx";
-import LogAgen from "../LogAgen.jsx";
-import { api } from "../api.js";
+import React from "react";
+import { Status, Indeks, Kelas } from "../components/Unsur.jsx";
+import { labelKondisi, labelSumber, lampu, urutkanWesel, waktuRelatif, STATUS } from "../kondisi.js";
 
-export default function BerandaPage({
-  weselList = [],
-  onSelectWesel,
-  onNavigate,
-  isAgentActive = true,
-  user,
-}) {
-  const [isAskingPriority, setIsAskingPriority] = useState(false);
-  const [aiPriorityAnswer, setAiPriorityAnswer] = useState(null);
-  const [aiSessionId, setAiSessionId] = useState(null);
-  const [aiLangkah, setAiLangkah] = useState([]);
-  const [conversationHistory, setConversationHistory] = useState([]);
-  const [inlineReplyText, setInlineReplyText] = useState("");
-  const [isSendingInline, setIsSendingInline] = useState(false);
+const JARAK = 170;
 
-  // Status counts
-  const counts = {
-    total: weselList.length,
-    normal: weselList.filter((w) => w.status === "Normal").length,
-    waspada: weselList.filter((w) => w.status === "Waspada").length,
-    bahaya: weselList.filter((w) => w.status === "Bahaya").length,
-    tidakDikenal: weselList.filter(
-      (w) => w.status !== "Normal" && w.status !== "Waspada" && w.status !== "Bahaya"
-    ).length,
-  };
-
-  // Prioritas urutan: Bahaya -> Tidak dikenal -> Waspada -> Waspada tren -> Normal
-  const sortedPriority = [...weselList].sort((a, b) => {
-    const weight = { Bahaya: 4, "Tidak dikenal": 3, Waspada: 2, Normal: 1 };
-    const diff = (weight[b.status] || 0) - (weight[a.status] || 0);
-    if (diff !== 0) return diff;
-    return (a.indeks_kesehatan || 0) - (b.indeks_kesehatan || 0);
-  });
-
-  const topPriority = sortedPriority[0] || null;
-
-  const askAiPriority = async () => {
-    if (!isAgentActive || isAskingPriority) return;
-    setIsAskingPriority(true);
-    try {
-      const res = await api.chat("Wesel mana yang harus segera diperbaiki?");
-      setAiPriorityAnswer(res.jawaban);
-      setAiSessionId(res.session_id);
-      setAiLangkah(res.langkah || []);
-      setConversationHistory([
-        { dari: "petugas", teks: "Wesel mana yang harus segera diperbaiki?" },
-        { dari: "agen", teks: res.jawaban, langkah: res.langkah },
-      ]);
-    } catch (err) {
-      setAiPriorityAnswer("Gagal memuat rekomendasi prioritas: " + (err.message || "Koneksi gateway bermasalah"));
-    } finally {
-      setIsAskingPriority(false);
-    }
-  };
-
-  const handleSendInlineReply = async (e) => {
-    if (e) e.preventDefault();
-    const text = inlineReplyText.trim();
-    if (!text || isSendingInline || !isAgentActive) return;
-
-    setIsSendingInline(true);
-    setInlineReplyText("");
-    try {
-      const res = await api.chat(text, aiSessionId);
-      setAiPriorityAnswer(res.jawaban);
-      if (res.session_id) setAiSessionId(res.session_id);
-      if (res.langkah) setAiLangkah(res.langkah);
-
-      setConversationHistory((prev) => [
-        ...prev,
-        { dari: "petugas", teks: text },
-        { dari: "agen", teks: res.jawaban, langkah: res.langkah },
-      ]);
-    } catch (err) {
-      setAiPriorityAnswer((prev) => `${prev}\n\n⚠️ Gagal mengirim balasan: ${err.message}`);
-    } finally {
-      setIsSendingInline(false);
-    }
-  };
-
-  const handleDetailedFollowUp = () => {
-    const target = topPriority?.wesel_id || "WESEL-03B";
-    if (onSelectWesel) onSelectWesel(target);
-    onNavigate("chat", {
-      sessionId: aiSessionId,
-      prompt: `Ya, tolong analisis wesel ${target} secara lebih rinci.`,
-      history: conversationHistory,
-    });
-  };
-
-  const handleSopFollowUp = () => {
-    const target = topPriority?.wesel_id || "WESEL-03B";
-    onNavigate("chat", {
-      sessionId: aiSessionId,
-      prompt: `Bagaimana SOP dan langkah perbaikan sesuai regulasi PD 10A untuk ${target}?`,
-      history: conversationHistory,
-    });
-  };
+// Papan mimik: setiap wesel digambar sebagai percabangan jalur dengan lampu status.
+function DiagramEmplasemen({ wesel, onPilih }) {
+  const urut = [...wesel].sort((a, b) => a.wesel_id.localeCompare(b.wesel_id, "id", { numeric: true }));
+  const lebar = Math.max(880, 80 + urut.length * JARAK);
+  const yUtama = 112;
+  const yCabang = 52;
+  const bantalan = [];
+  for (let x = 24; x < lebar - 24; x += 16) bantalan.push(x);
 
   return (
-    <div className="page-view beranda-page">
-      {/* Page Header */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Pemantauan Kondisi Wesel</h1>
-          <p className="page-desc">
-            Ikhtisar kesehatan operasional wesel stasiun, deteksi anomali real-time, dan rekomendasi preskriptif.
-          </p>
-        </div>
-      </div>
+    <svg viewBox={`0 0 ${lebar} 184`} role="group" aria-label="Diagram emplasemen">
+      {bantalan.map((x) => <line key={x} className="bantalan" x1={x} y1={yUtama - 6} x2={x} y2={yUtama + 6} />)}
+      <path className="rel" d={`M24 ${yUtama} H${lebar - 24}`} />
+      <path className="rel" d={`M24 ${yUtama - 12} V${yUtama + 12} M${lebar - 24} ${yUtama - 12} V${yUtama + 12}`} />
+      {urut.map((w, i) => {
+        const x = 78 + i * JARAK;
+        const lmp = lampu(w.status);
+        const buka = () => onPilih(w.wesel_id);
+        return (
+          <g
+            key={w.wesel_id}
+            className="wesel"
+            tabIndex={0}
+            role="button"
+            aria-label={`${w.wesel_id}, ${w.status}, indeks ${w.indeks_kesehatan}`}
+            onClick={buka}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), buka())}
+          >
+            <rect className="bingkai" x={x - 44} y={10} width={JARAK - 14} height={166} rx="4" />
+            <path className="rel-cabang" d={`M${x} ${yUtama} L${x + 46} ${yCabang} H${x + 104}`} />
+            <path className="rel-cabang" d={`M${x + 104} ${yCabang - 9} V${yCabang + 9}`} />
+            <line className="tiang" x1={x - 22} y1={yUtama - 4} x2={x - 22} y2={yCabang + 14} />
+            <rect className="kepala" x={x - 31} y={yCabang - 14} width="18" height="28" rx="3" />
+            <circle className={`lmp-${lmp}`} cx={x - 22} cy={yCabang} r="6" />
+            <text className="id" x={x - 34} y={yUtama + 32}>{w.wesel_id}</text>
+            <text className="ket" x={x - 34} y={yUtama + 52}>{w.status}, {w.indeks_kesehatan}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
-      {/* Ringkasan Status Grid */}
-      <div className="summary-status-grid">
-        <div className="summary-card total">
-          <span className="summary-label">Total Dipantau</span>
-          <span className="summary-value">{counts.total}</span>
-          <span className="summary-hint">Wesel aktif di stasiun</span>
-        </div>
-        <div className="summary-card bahaya">
-          <span className="summary-label">Bahaya</span>
-          <span className="summary-value">{counts.bahaya}</span>
-          <span className="summary-hint">Perlu tindakan darurat segera</span>
-        </div>
-        <div className="summary-card waspada">
-          <span className="summary-label">Waspada</span>
-          <span className="summary-value">{counts.waspada}</span>
-          <span className="summary-hint">Tren degradasi / observasi</span>
-        </div>
-        <div className="summary-card normal">
-          <span className="summary-label">Normal</span>
-          <span className="summary-value">{counts.normal}</span>
-          <span className="summary-hint">Kondisi operasi prima</span>
-        </div>
-      </div>
+function Hitungan({ wesel }) {
+  const jumlah = Object.keys(STATUS).map((s) => [s, wesel.filter((w) => w.status === s).length]);
+  return (
+    <footer>
+      {jumlah.map(([s, n]) => (
+        <span key={s}>
+          <span className={`wg-lampu ${STATUS[s].lampu}`} aria-hidden="true" />
+          {s} <b>{n}</b>
+        </span>
+      ))}
+      <em>Urutan di diagram mengikuti ID wesel, bukan tata letak emplasemen sebenarnya.</em>
+    </footer>
+  );
+}
 
-      {/* Main Grid: Tabel Wesel + Panel Prioritas */}
-      <div className="beranda-content-grid">
-        {/* Kolom Kiri: Tabel Wesel */}
-        <div className="card beranda-table-card">
-          <div className="card-header-bar">
-            <div>
-              <h2 className="card-heading">Daftar Wesel Terpantau</h2>
-              <p className="card-subheading">Pembaruan otomatis tiap 5 detik dari sensor akselerometer.</p>
-            </div>
-            <span className="table-row-count-tag">{weselList.length} Wesel</span>
-          </div>
+export function KondisiSel({ w }) {
+  if (w.status === "Tidak dikenal" && w.kondisi_kandidat !== "tidak_dikenal") {
+    return <span>Tidak cocok <span className="wg-redup">(terdekat: {labelKondisi(w.kondisi_kandidat).toLowerCase()}, skor {Number(w.skor_kecocokan).toLocaleString("id-ID", { minimumFractionDigits: 2 })})</span></span>;
+  }
+  return labelKondisi(w.kondisi_kandidat);
+}
 
-          <div className="table-responsive-wrapper">
-            <table className="custom-table wesel-table">
+export default function BerandaPage({ wesel, workOrders, sudahMuat, onNavigate }) {
+  const buka = (id) => onNavigate("detail", { weselId: id });
+  const menunggu = workOrders.filter((w) => w.status?.startsWith("MENUNGGU"));
+
+  if (sudahMuat && wesel.length === 0) {
+    return (
+      <section className="wg-panel wg-kosong">
+        <b>Belum ada siklus yang masuk.</b>
+        Jalankan penerima LoRa di gateway, atau isi data uji dengan simulasi.py. Wesel muncul di sini setelah siklus pertamanya diproses lapis 1.
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <section className="wg-panel wg-diagram" aria-labelledby="judul-diagram">
+        <header>
+          <h2 id="judul-diagram">Diagram emplasemen</h2>
+          <p>Lampu menunjukkan status lapis 1 tiap wesel. Pilih wesel untuk melihat ciri, tren, dan analisis agen.</p>
+        </header>
+        <div className="wg-diagram-gulir"><DiagramEmplasemen wesel={wesel} onPilih={buka} /></div>
+        <Hitungan wesel={wesel} />
+      </section>
+
+      <div className="wg-dua">
+        <section className="wg-panel" aria-labelledby="judul-tabel">
+          <header>
+            <h2 id="judul-tabel">Semua wesel</h2>
+            <p>Diurutkan dari yang paling mendesak. Diperbarui tiap 5 detik.</p>
+          </header>
+          <div className="wg-tabel-bungkus">
+            <table className="wg-tabel">
               <thead>
                 <tr>
                   <th>Wesel</th>
                   <th>Status</th>
-                  <th>Indeks Kesehatan</th>
-                  <th>Kandidat Kondisi</th>
-                  <th>Siklus Terakhir</th>
-                  <th>Aksi</th>
+                  <th>Kondisi</th>
+                  <th>Indeks</th>
+                  <th>Sumber</th>
+                  <th>Siklus terakhir</th>
                 </tr>
               </thead>
               <tbody>
-                {weselList.map((w) => {
-                  const statusClass = (w.status || "normal").toLowerCase().replace(/\s+/g, "-");
-                  const isSilent = (w.menit_sejak_siklus_terakhir || 0) > 120;
-                  const score = w.indeks_kesehatan || 0;
-
-                  return (
-                    <tr
-                      key={w.wesel_id}
-                      className="clickable-row"
-                      onClick={() => {
-                        onSelectWesel(w.wesel_id);
-                        onNavigate("detail", { weselId: w.wesel_id });
-                      }}
-                      title="Klik untuk melihat detail & tren wesel ini"
-                    >
-                      <td>
-                        <div className="wesel-id-group">
-                          <strong className="wesel-id-text">{w.wesel_id}</strong>
-                          <span className="wesel-location-text">{w.lokasi || "Jalur Stasiun"}</span>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span className={`status-pill ${statusClass}`}>
-                          {w.status}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="health-bar-container">
-                          <div className="health-score-header">
-                            <span className="health-score-number">{score}/100</span>
-                          </div>
-                          {/* Progress bar with threshold markers at 40 and 70 */}
-                          <div className="health-track">
-                            <div
-                              className={`health-fill ${
-                                score <= 40 ? "danger" : score <= 70 ? "warning" : "good"
-                              }`}
-                              style={{ width: `${Math.min(Math.max(score, 5), 100)}%` }}
-                            />
-                            {/* Marker batas 40 (Bahaya) */}
-                            <span
-                              className="threshold-marker m-40"
-                              title="Batas Kritis Bahaya (40)"
-                            />
-                            {/* Marker batas 70 (Waspada) */}
-                            <span
-                              className="threshold-marker m-70"
-                              title="Batas Waspada (70)"
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span className="condition-label">
-                          {w.kondisi_kandidat === "poros_tidak_sejajar"
-                            ? "Poros Tidak Sejajar"
-                            : w.kondisi_kandidat === "bantalan_aus"
-                            ? "Bantalan Aus"
-                            : "Normal (Prima)"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="cycle-time-cell">
-                          <span>{w.terakhir_diperiksa || "Hari ini"}</span>
-                          {isSilent && (
-                            <span
-                              className="sensor-silent-pill"
-                              title={`Sensor tidak mengirim siklus selama ${w.menit_sejak_siklus_terakhir} menit (>120m)`}
-                            >
-                              <IconAlertTriangle className="icon-mini-warn" />
-                              Sensor Senyap ({w.menit_sejak_siklus_terakhir}m)
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          className="table-action-link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectWesel(w.wesel_id);
-                            onNavigate("detail", { weselId: w.wesel_id });
-                          }}
-                        >
-                          Detail ↗
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {urutkanWesel(wesel).map((w) => (
+                  <tr key={w.wesel_id} className="bisa-klik" onClick={() => buka(w.wesel_id)}>
+                    <td>
+                      <button type="button" className="wg-tautan wg-id" style={{ textDecoration: "none", color: "var(--ink)" }} onClick={(e) => { e.stopPropagation(); buka(w.wesel_id); }}>
+                        {w.wesel_id}
+                      </button>
+                    </td>
+                    <td><Status status={w.status} /></td>
+                    <td><KondisiSel w={w} /></td>
+                    <td><Indeks nilai={w.indeks_kesehatan} /></td>
+                    <td className="wg-redup">{labelSumber(w.sumber)}</td>
+                    <td className={w.menit_sejak_siklus_terakhir > 120 ? "wg-lewat" : "wg-redup"}>
+                      {waktuRelatif(w.menit_sejak_siklus_terakhir)}
+                      {w.menit_sejak_siklus_terakhir > 120 && ", sensor senyap"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* Kolom Kanan: Panel Prioritas Hari Ini & Prescriptive AI */}
-        <div className="card beranda-priority-card">
-          <div className="priority-card-top">
-            <div className="priority-pill-badge">
-              <IconVolume2 className="priority-speaker-icon" />
-              <span>Prioritas Hari Ini</span>
-            </div>
-            {topPriority && (
-              <button
-                type="button"
-                className="priority-external-link-btn"
-                onClick={() => {
-                  onSelectWesel(topPriority.wesel_id);
-                  onNavigate("detail", { weselId: topPriority.wesel_id });
-                }}
-                title={`Buka detail wesel ${topPriority.wesel_id}`}
-              >
-                <IconArrowUpRight className="icon-tiny" />
-              </button>
-            )}
-          </div>
-
-          {topPriority ? (
-            <div className="priority-switch-focus">
-              <div className="priority-tag-row">
-                <span className={`status-pill ${topPriority.status.toLowerCase()}`}>
-                  {topPriority.status.toUpperCase()}
-                </span>
-                <span className="priority-target-name">{topPriority.wesel_id}</span>
-                <span className="priority-score-tag">Skor: {topPriority.indeks_kesehatan}/100</span>
-              </div>
-
-              <h3 className="priority-title">
-                {topPriority.status === "Bahaya"
-                  ? `Perhatian: ${topPriority.wesel_id} Butuh Penanganan Segera!`
-                  : `Pantau Terjadwal: ${topPriority.wesel_id}`}
-              </h3>
-
-              <p className="priority-explanation">
-                {topPriority.kondisi_kandidat === "poros_tidak_sejajar"
-                  ? "Poros penggerak tidak sejajar. Beban getaran RMS tinggi dan durasi pembalikan melambat kritis."
-                  : topPriority.kondisi_kandidat === "bantalan_aus"
-                  ? "Keausan bantalan gesek terdeteksi meningkat dalam evaluasi mingguan. Disarankan pelumasan & inspeksi celah."
-                  : "Seluruh wesel beroperasi dalam batas toleransi normal. Lanjutkan inspeksi visual berkala."}
-              </p>
-            </div>
+        <section className="wg-panel" aria-labelledby="judul-antrean">
+          <header>
+            <h2 id="judul-antrean">Menunggu keputusan</h2>
+            <p>{menunggu.length ? `${menunggu.length} usulan dari agen` : "Tidak ada usulan terbuka"}</p>
+          </header>
+          {menunggu.length === 0 ? (
+            <p className="wg-kosong">Usulan work order dan eskalasi dari agen muncul di sini sampai petugas memutuskannya.</p>
           ) : (
-            <div className="priority-empty-state">
-              <h3>Pencegahan Dini Gangguan Wesel</h3>
-              <p>Dapatkan rekomendasi preskriptif dan urutan prioritas wesel sebelum terjadi gangguan operasi.</p>
-            </div>
+            <ul className="wg-antrean">
+              {menunggu.slice(0, 5).map((wo) => (
+                <li key={wo.id}>
+                  <div className="baris1">
+                    {wo.jenis === "ESKALASI" ? <span className="wg-label eskalasi">Eskalasi</span> : <Kelas kelas={wo.kelas} />}
+                    <span className="wg-id">{wo.wesel_id}</span>
+                    <small>{wo.id}</small>
+                  </div>
+                  <p>{wo.ringkasan || wo.alasan}</p>
+                </li>
+              ))}
+            </ul>
           )}
-
-          {/* AI Response Box (if triggered) */}
-          {aiPriorityAnswer && (
-            <div className="ai-priority-response-box">
-              <div className="response-header-row">
-                <div className="response-title-left">
-                  <IconSparkles className="sparkle-tiny" />
-                  <span className="response-title">Rekomendasi Agen AI</span>
-                  {aiSessionId && (
-                    <span className="response-session-pill">Sesi Terhubung</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="response-clear-btn"
-                  onClick={() => {
-                    setAiPriorityAnswer(null);
-                    setAiSessionId(null);
-                    setAiLangkah([]);
-                  }}
-                  title="Tutup jawaban ini"
-                >
-                  <IconX className="close-mini-icon" />
-                  <span>Tutup</span>
-                </button>
-              </div>
-
-              <div className="response-text">
-                <Teks isi={aiPriorityAnswer} />
-              </div>
-
-              {aiLangkah && aiLangkah.length > 0 && (
-                <div className="response-reasoning-wrap">
-                  <LogAgen langkah={aiLangkah} />
-                </div>
-              )}
-
-              {/* Action chips to seamlessly continue */}
-              <div className="priority-followup-toolbar">
-                <span className="toolbar-label">Lanjutkan:</span>
-
-                <button
-                  type="button"
-                  className="priority-action-chip primary"
-                  onClick={handleDetailedFollowUp}
-                  disabled={!isAgentActive || user?.peran === "pengamat" || user?.peran === "pengelola"}
-                  title="Buka halaman chat dan lanjutkan analisis mendalam"
-                >
-                  <span>⚡ Ya, Analisis {topPriority?.wesel_id} Lebih Rinci</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="priority-action-chip secondary"
-                  onClick={handleSopFollowUp}
-                  disabled={!isAgentActive || user?.peran === "pengamat" || user?.peran === "pengelola"}
-                  title="Tanyakan SOP langkah perbaikan sesuai PD 10A"
-                >
-                  <span>📋 SOP Perbaikan</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="priority-action-chip chat-link"
-                  onClick={() => {
-                    onNavigate("chat", {
-                      sessionId: aiSessionId,
-                      history: conversationHistory,
-                    });
-                  }}
-                  title="Buka percakapan lengkap di halaman Tanya Agen"
-                >
-                  <span>💬 Buka di Halaman Chat ({conversationHistory.length} pesan)</span>
-                </button>
-              </div>
-
-              {/* Inline quick reply */}
-              <form className="priority-inline-chat-form" onSubmit={handleSendInlineReply}>
-                <input
-                  type="text"
-                  className="priority-inline-chat-input"
-                  placeholder="Ketik balasan untuk agen..."
-                  value={inlineReplyText}
-                  onChange={(e) => setInlineReplyText(e.target.value)}
-                  disabled={!isAgentActive || isSendingInline || user?.peran === "pengamat"}
-                />
-                <button
-                  type="submit"
-                  className="priority-inline-chat-send-btn"
-                  disabled={!inlineReplyText.trim() || isSendingInline || !isAgentActive || user?.peran === "pengamat"}
-                  title="Kirim tanggapan"
-                >
-                  {isSendingInline ? "..." : <IconSend className="send-icon-mini" />}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="priority-bottom-actions">
-            <button
-              type="button"
-              className="btn-primary-action"
-              onClick={askAiPriority}
-              disabled={!isAgentActive || isAskingPriority || user?.peran === "pengamat"}
-              title='Kirim pesan "Wesel mana yang harus segera diperbaiki?" ke agen'
-            >
-              <IconSparkles className="btn-icon-left" />
-              <span>{isAskingPriority ? "Menghitung Prioritas…" : "Tanya Prioritas Agen"}</span>
-            </button>
-
-            {topPriority && (
-              <button
-                type="button"
-                className="btn-secondary-custom"
-                onClick={() => {
-                  onSelectWesel(topPriority.wesel_id);
-                  onNavigate("detail", { weselId: topPriority.wesel_id });
-                }}
-                title="Buka halaman Detail Wesel untuk analisis sinyal"
-              >
-                <span>Detail {topPriority.wesel_id} ↗</span>
-              </button>
-            )}
-          </div>
-        </div>
+          <footer className="wg-antrean">
+            <button type="button" className="wg-tombol kecil" onClick={() => onNavigate("workorders")}>Buka halaman keputusan</button>
+          </footer>
+        </section>
       </div>
-    </div>
+    </>
   );
 }

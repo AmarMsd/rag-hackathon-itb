@@ -1,191 +1,78 @@
-import React, { useState, useEffect } from "react";
-import { IconSearch, IconX } from "../Icons.jsx";
+import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { Lampu } from "./Unsur.jsx";
+import { labelKondisi } from "../kondisi.js";
 
-export default function SearchDropdown({
-  query,
-  isOpen,
-  onClose,
-  onSelectWesel,
-  onNavigate,
-}) {
-  const [selectedType, setSelectedType] = useState("semua");
-  const [searchResults, setSearchResults] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
+const JENIS = [
+  ["semua", "Semua"],
+  ["wesel", "Wesel"],
+  ["work_order", "Work order"],
+  ["riwayat", "Riwayat"],
+  ["manual", "Manual contoh"],
+  ["dokumen", "Dokumen"],
+];
+
+// Hasil pencarian gabungan dari /api/cari. Kunci hasil mengikuti backend (pencarian.py).
+export default function SearchDropdown({ query, isOpen, onClose, onSelectWesel, onNavigate }) {
+  const [jenis, setJenis] = useState("semua");
+  const [hasil, setHasil] = useState(null);
+  const [galat, setGalat] = useState("");
 
   useEffect(() => {
-    if (!query || query.trim().length < 2) {
-      setSearchResults(null);
-      return;
-    }
+    if (!isOpen || query.trim().length < 2) return;
+    const t = setTimeout(() => {
+      api.cari(query.trim(), jenis, 5).then((r) => { setHasil(r); setGalat(""); }).catch((e) => setGalat(e.message));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, jenis, isOpen]);
 
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await api.cari(query.trim(), selectedType, 5);
-        setSearchResults(res);
-      } catch (err) {
-        console.error("Gagal melakukan pencarian:", err);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [query, selectedType]);
-
-  if (!isOpen || !query || query.trim().length < 2) return null;
-
-  const totalHasil = searchResults?.jumlah || 0;
-  const hasil = searchResults?.hasil || {};
+  if (!isOpen) return null;
+  const h = hasil?.hasil || {};
+  const kosong = hasil && hasil.jumlah === 0;
 
   return (
-    <div className="search-dropdown-menu" onClick={(e) => e.stopPropagation()}>
-      {/* Search Filter Header */}
-      <div className="search-dropdown-header">
-        <span className="search-count-label">
-          {isSearching
-            ? "Mencari data…"
-            : `${totalHasil} hasil ditemukan untuk "${query}"`}
-        </span>
-
-        <div className="search-type-filters">
-          {[
-            { id: "semua", label: "Semua" },
-            { id: "wesel", label: "Wesel" },
-            { id: "work_order", label: "Work Order" },
-            { id: "regulasi", label: "Regulasi KAI" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`search-type-pill ${selectedType === tab.id ? "active" : ""}`}
-              onClick={() => setSelectedType(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+    <div className="wg-hasil-cari" role="dialog" aria-label="Hasil pencarian">
+      <div className="wg-tab" role="tablist">
+        {JENIS.map(([id, nama]) => (
+          <button key={id} role="tab" aria-selected={jenis === id} onClick={() => setJenis(id)}>{nama}</button>
+        ))}
       </div>
-
-      {/* Results Content */}
-      <div className="search-results-container">
-        {totalHasil === 0 && !isSearching && (
-          <div className="search-empty-state">
-            Tidak ada data yang cocok dengan "{query}". Coba kata kunci ID wesel (W-01A), nomor WO, atau pasal PD 10A.
-          </div>
+      {galat && <p className="wg-galat" style={{ padding: "8px 14px" }}>{galat}</p>}
+      {!hasil && !galat && <p className="wg-sedang" style={{ padding: "10px 14px" }}>Mencari</p>}
+      {kosong && <p className="wg-kosong" style={{ padding: "10px 14px" }}>Tidak ada yang cocok dengan “{query}”. Coba ID wesel seperti PM-01, nomor work order, atau gejala seperti “macet”.</p>}
+      <div className="wg-hasil-isi">
+        {h.wesel?.length > 0 && (
+          <section><h4>Wesel</h4>{h.wesel.map((w) => (
+            <button key={w.wesel_id} type="button" onClick={() => { onSelectWesel?.(w.wesel_id); onClose(); }}>
+              <Lampu status={w.status} /><b>{w.wesel_id}</b><span>{w.status}, {labelKondisi(w.kondisi_kandidat).toLowerCase()}, indeks {w.indeks_kesehatan}</span>
+            </button>
+          ))}</section>
         )}
-
-        {/* 1. Kategori Wesel */}
-        {hasil.wesel && hasil.wesel.length > 0 && (
-          <div className="search-category-group">
-            <h4 className="category-title">Wesel</h4>
-            <div className="category-items">
-              {hasil.wesel.map((w) => (
-                <div
-                  key={w.wesel_id}
-                  className="search-item-row"
-                  onClick={() => {
-                    onSelectWesel && onSelectWesel(w.wesel_id);
-                    if (onNavigate) onNavigate("detail", { weselId: w.wesel_id });
-                    onClose();
-                  }}
-                >
-                  <div className="item-main-col">
-                    <strong className="item-title">{w.wesel_id}</strong>
-                    <span className="item-sub">
-                      Kondisi: {w.kondisi_kandidat?.replace("_", " ")}
-                    </span>
-                  </div>
-                  <div className="item-right-col">
-                    <span className={`item-status-pill ${w.status?.toLowerCase()}`}>
-                      {w.status}
-                    </span>
-                    <span className="item-score">{w.indeks_kesehatan}/100</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {h.work_order?.length > 0 && (
+          <section><h4>Work order</h4>{h.work_order.map((w) => (
+            <button key={w.id} type="button" onClick={() => onNavigate("workorders")}>
+              <b>{w.id}</b><span>{w.wesel_id}, {w.status.toLowerCase().replaceAll("_", " ")}. {w.ringkasan || w.alasan}</span>
+            </button>
+          ))}</section>
         )}
-
-        {/* 2. Kategori Work Order */}
-        {hasil.work_order && hasil.work_order.length > 0 && (
-          <div className="search-category-group">
-            <h4 className="category-title">Work Orders</h4>
-            <div className="category-items">
-              {hasil.work_order.map((wo) => (
-                <div
-                  key={wo.id}
-                  className="search-item-row"
-                  onClick={() => {
-                    if (onNavigate) onNavigate("workorders");
-                    onClose();
-                  }}
-                >
-                  <div className="item-main-col">
-                    <div className="wo-title-line">
-                      <strong className="item-title">{wo.id}</strong>
-                      <span className="item-sub-tag">{wo.wesel_id}</span>
-                      <span className="wo-class-tag">Kelas {wo.kelas}</span>
-                    </div>
-                    <p className="item-desc">{wo.ringkasan || wo.alasan}</p>
-                  </div>
-                  <div className="item-right-col">
-                    <span className="item-status-pill warning">{wo.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {h.riwayat?.length > 0 && (
+          <section><h4>Riwayat</h4>{h.riwayat.map((r, i) => (
+            <button key={i} type="button" onClick={() => onNavigate("detail", { weselId: r.wesel_id })}>
+              <b>{r.wesel_id}</b><span>{r.tanggal}, {labelKondisi(r.kondisi).toLowerCase()}, {r.keputusan_petugas}</span>
+            </button>
+          ))}</section>
         )}
-
-        {/* 3. Kategori Dokumen / Regulasi */}
-        {hasil.dokumen && hasil.dokumen.length > 0 && (
-          <div className="search-category-group">
-            <h4 className="category-title">Dokumen Pengetahuan</h4>
-            <div className="category-items">
-              {hasil.dokumen.map((d) => (
-                <div
-                  key={d.id}
-                  className="search-item-row"
-                  onClick={() => {
-                    if (onNavigate) onNavigate("dokumen");
-                    onClose();
-                  }}
-                >
-                  <div className="item-main-col">
-                    <strong className="item-title">{d.judul}</strong>
-                    <span className="item-sub">Kategori: {d.kategori} • {d.nama_file}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {h.manual?.length > 0 && (
+          <section><h4>Manual contoh</h4>{h.manual.map((m) => (
+            <div key={m.id} className="baris"><b>{m.id} {m.judul}</b><span>{m.cuplikan}</span></div>
+          ))}</section>
         )}
-
-        {/* 4. Kategori Regulasi PD 10A */}
-        {hasil.regulasi && hasil.regulasi.length > 0 && (
-          <div className="search-category-group">
-            <h4 className="category-title">Regulasi Teknis KAI (PD 10A)</h4>
-            <div className="category-items">
-              {hasil.regulasi.map((r, i) => (
-                <div
-                  key={i}
-                  className="search-item-row law-row"
-                  onClick={() => {
-                    if (onNavigate) onNavigate("dokumen");
-                    onClose();
-                  }}
-                >
-                  <div className="item-main-col">
-                    <strong className="item-title">{r.sumber} (Hal. {r.halaman})</strong>
-                    <p className="item-desc quote">"{r.cuplikan}"</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {h.dokumen?.length > 0 && (
+          <section><h4>Dokumen</h4>{h.dokumen.map((d, i) => (
+            <button key={i} type="button" onClick={() => onNavigate("dokumen")}>
+              <b>{d.judul}, hlm. {d.halaman}</b><span>{d.cuplikan}</span>
+            </button>
+          ))}</section>
         )}
       </div>
     </div>

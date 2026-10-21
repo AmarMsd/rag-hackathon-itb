@@ -1,436 +1,162 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  IconHeadset,
-  IconSparkles,
-  IconSend,
-  IconPlus,
-  IconEdit,
-  IconTrash,
-  IconAlertTriangle,
-} from "../Icons.jsx";
+import { api } from "../api.js";
 import Teks from "../Teks.jsx";
 import LogAgen from "../LogAgen.jsx";
-import { api } from "../api.js";
 
-export default function TanyaAgenPage({
-  initialSessionId = null,
-  initialPrompt = null,
-  initialHistory = null,
-  isAgentActive = true,
-  user,
-}) {
-  const [activeTab, setActiveTab] = useState("chat"); // 'chat' | 'analisis'
-  const [conversations, setConversations] = useState([]);
-  const [currentSessionId, setCurrentSessionId] = useState(initialSessionId);
-  const [messages, setMessages] = useState(
-    initialHistory && initialHistory.length
-      ? initialHistory
-      : [
-          {
-            dari: "agen",
-            teks: "Halo! Saya Tesi Asisten Sintelis. Anda dapat menanyakan kondisi wesel, interpretasi getaran sensor akselerometer, atau kepatuhan regulasi PD 10A.",
-          },
-        ]
-  );
-  const [input, setInput] = useState("");
-  const [isBusy, setIsBusy] = useState(false);
-  const [isPermanen, setIsPermanen] = useState(true);
+const CONTOH = [
+  "Wesel mana yang harus segera ditangani hari ini?",
+  "Berapa batas waktu perpindahan wesel menurut PM 10/2011?",
+  "Apa langkah pemeriksaan bila wesel macet?",
+];
 
-  // Edit Title State
-  const [editingId, setEditingId] = useState(null);
-  const [editTitleInput, setEditTitleInput] = useState("");
+function tgl(t) {
+  return t ? new Date(t).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+}
 
-  const messagesEndRef = useRef(null);
+export default function TanyaAgenPage({ initialSessionId = null, initialPrompt = null, initialHistory = null, isAgentActive = true }) {
+  const [jenis, setJenis] = useState("chat");
+  const [daftar, setDaftar] = useState([]);
+  const [permanen, setPermanen] = useState(true);
+  const [sesi, setSesi] = useState(initialSessionId);
+  const [pesan, setPesan] = useState(initialHistory || []);
+  const [isian, setIsian] = useState("");
+  const [sibuk, setSibuk] = useState(false);
+  const [ubahJudul, setUbahJudul] = useState(null);
+  const akhir = useRef(null);
 
-  // Load conversation list
-  const loadConversations = async () => {
+  const muatDaftar = () => api.percakapan(jenis).then((r) => { setDaftar(r.percakapan || []); setPermanen(r.permanen !== false); }).catch(() => {});
+  useEffect(() => { muatDaftar(); }, [jenis]);
+  useEffect(() => { if (initialPrompt) kirim(initialPrompt); }, [initialPrompt]);
+  useEffect(() => { akhir.current?.scrollIntoView({ block: "end" }); }, [pesan, sibuk]);
+
+  async function buka(id) {
+    if (sibuk || id === sesi) return;
+    setSesi(id);
+    setSibuk(true);
     try {
-      const res = await api.percakapan(activeTab);
-      setConversations(res.percakapan || []);
-      if (res.permanen !== undefined) {
-        setIsPermanen(res.permanen);
-      }
+      const d = await api.isiPercakapan(id);
+      setPesan(d.pesan?.length ? d.pesan : [{ dari: "agen", teks: d.cuplikan || "" }]);
     } catch (err) {
-      console.error("Gagal memuat percakapan:", err);
-    }
-  };
-
-  useEffect(() => {
-    loadConversations();
-  }, [activeTab]);
-
-  // If initialPrompt is passed, auto-send it
-  useEffect(() => {
-    if (initialPrompt) {
-      handleSend(initialPrompt);
-    }
-  }, [initialPrompt]);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isBusy]);
-
-  // Select existing conversation
-  const handleSelectConversation = async (sid) => {
-    if (isBusy || sid === currentSessionId) return;
-    setCurrentSessionId(sid);
-    setIsBusy(true);
-    try {
-      const detail = await api.isiPercakapan(sid);
-      if (detail?.pesan && detail.pesan.length) {
-        setMessages(detail.pesan);
-      } else {
-        setMessages([
-          {
-            dari: "agen",
-            teks: detail.cuplikan || "Percakapan dimuat.",
-          },
-        ]);
-      }
-    } catch (err) {
-      setMessages([
-        {
-          dari: "galat",
-          teks: err.message || "Gagal memuat isi percakapan ini.",
-        },
-      ]);
+      setPesan([{ dari: "galat", teks: err.message }]);
     } finally {
-      setIsBusy(false);
+      setSibuk(false);
     }
-  };
+  }
 
-  // Start fresh conversation (POST /api/chat tanpa session_id)
-  const handleStartNewChat = () => {
-    setCurrentSessionId(null);
-    setMessages([
-      {
-        dari: "agen",
-        teks: "Percakapan baru dimulai. Silakan ajukan pertanyaan atau konsultasi teknis.",
-      },
-    ]);
-  };
+  function baru() {
+    setSesi(null);
+    setPesan([]);
+  }
 
-  // Send message
-  const handleSend = async (textToSend) => {
-    const text = (textToSend || input).trim();
-    if (!text || isBusy || !isAgentActive) return;
-
-    setInput("");
-    setIsBusy(true);
-    setMessages((prev) => [...prev, { dari: "petugas", teks: text }]);
-
+  async function kirim(teks) {
+    const t = (teks ?? isian).trim();
+    if (!t || sibuk || !isAgentActive) return;
+    setIsian("");
+    setSibuk(true);
+    setPesan((p) => [...p, { dari: "petugas", teks: t }]);
     try {
-      // POST /api/chat dengan session_id (jika melanjutkan) atau tanpa session_id
-      const res = await api.chat(text, currentSessionId || undefined);
-      if (res.session_id) {
-        setCurrentSessionId(res.session_id);
-      }
-      setMessages((prev) => [
-        ...prev,
-        {
-          dari: "agen",
-          teks: res.jawaban,
-          langkah: res.langkah,
-        },
-      ]);
-      loadConversations();
+      const r = await api.chat(t, sesi || undefined);
+      if (r.session_id) setSesi(r.session_id);
+      setPesan((p) => [...p, { dari: "agen", teks: r.jawaban, langkah: r.langkah }]);
+      muatDaftar();
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { dari: "galat", teks: err.message || "Gagal menghubungi agen." },
-      ]);
+      setPesan((p) => [...p, { dari: "galat", teks: err.message }]);
     } finally {
-      setIsBusy(false);
+      setSibuk(false);
     }
-  };
+  }
 
-  // Rename conversation
-  const handleSaveTitle = async (sid) => {
-    if (!editTitleInput.trim()) return;
-    try {
-      await api.ubahJudulPercakapan(sid, editTitleInput.trim());
-      setEditingId(null);
-      loadConversations();
-    } catch (err) {
-      alert("Gagal mengubah judul: " + err.message);
-    }
-  };
+  async function hapus(id) {
+    if (!window.confirm("Hapus percakapan ini?")) return;
+    await api.hapusPercakapan(id).catch(() => {});
+    if (id === sesi) baru();
+    muatDaftar();
+  }
 
-  // Delete single conversation
-  const handleDeleteConversation = async (sid, e) => {
-    e.stopPropagation();
-    if (!confirm("Hapus percakapan ini dari daftar?")) return;
-    try {
-      await api.hapusPercakapan(sid);
-      if (currentSessionId === sid) {
-        handleStartNewChat();
-      }
-      loadConversations();
-    } catch (err) {
-      alert("Gagal menghapus percakapan: " + err.message);
-    }
-  };
-
-  // Delete all conversations
-  const handleDeleteAll = async () => {
-    if (!confirm("Yakin ingin menghapus seluruh riwayat percakapan Anda?")) return;
-    try {
-      await api.hapusSemuaPercakapan();
-      handleStartNewChat();
-      loadConversations();
-    } catch (err) {
-      alert("Gagal menghapus semua percakapan: " + err.message);
-    }
-  };
-
-  const quickPrompts = [
-    "Berapa batas waktu pembalikan lidah wesel sesuai PD 10A?",
-    "Bagaimana prosedur darurat bila wesel berstatus Bahaya?",
-    "Jelaskan arti kenaikan nilai Kurtosis dan RMS getaran",
-    "Wesel mana yang harus segera diperbaiki hari ini?",
-  ];
+  async function simpanJudul(e) {
+    e.preventDefault();
+    if (!ubahJudul?.judul.trim()) return;
+    await api.ubahJudulPercakapan(ubahJudul.id, ubahJudul.judul.trim()).catch(() => {});
+    setUbahJudul(null);
+    muatDaftar();
+  }
 
   return (
-    <div className="page-view tanya-agen-page">
-      <div className="chat-layout-container">
-        {/* Left Sidebar: Riwayat Percakapan */}
-        <aside className="chat-history-sidebar">
-          <div className="chat-sidebar-header">
-            <button
-              type="button"
-              className="btn-new-chat"
-              onClick={handleStartNewChat}
-              disabled={isBusy}
-            >
-              <IconPlus className="icon-tiny" />
-              <span>Percakapan Baru</span>
-            </button>
-          </div>
+    <div className="wg-chat">
+      <section className="wg-panel wg-chat-daftar" aria-label="Riwayat percakapan">
+        <header>
+          <h2>Percakapan</h2>
+          <button type="button" className="wg-tombol kecil wg-kanan" onClick={baru}>Percakapan baru</button>
+        </header>
+        <div className="wg-tab" role="tablist" style={{ padding: "0 12px" }}>
+          <button role="tab" aria-selected={jenis === "chat"} onClick={() => setJenis("chat")}>Tanya jawab</button>
+          <button role="tab" aria-selected={jenis === "analisis"} onClick={() => setJenis("analisis")}>Analisis wesel</button>
+        </div>
+        {!permanen && <p className="wg-catatan">Percakapan hanya disimpan di memori server dan hilang saat server dijalankan ulang.</p>}
+        {daftar.length === 0 ? <p className="wg-kosong">Belum ada percakapan.</p> : (
+          <ul>
+            {daftar.map((c) => (
+              <li key={c.id} aria-current={c.id === sesi ? "true" : undefined}>
+                {ubahJudul?.id === c.id ? (
+                  <form onSubmit={simpanJudul} className="wg-baris-aksi">
+                    <input className="wg-input" autoFocus value={ubahJudul.judul} onChange={(e) => setUbahJudul({ ...ubahJudul, judul: e.target.value })} style={{ flex: 1 }} aria-label="Judul percakapan" />
+                    <button className="wg-tombol kecil" type="submit">Simpan</button>
+                  </form>
+                ) : (
+                  <>
+                    <button type="button" className="judul" onClick={() => buka(c.id)}>
+                      <b>{c.judul}</b>
+                      <span>{tgl(c.diperbarui)}, {c.jumlah_pesan} pesan</span>
+                    </button>
+                    <span className="aksi">
+                      <button type="button" className="wg-tautan" onClick={() => setUbahJudul({ id: c.id, judul: c.judul })}>Ubah judul</button>
+                      <button type="button" className="wg-tautan" style={{ color: "var(--merah)" }} onClick={() => hapus(c.id)}>Hapus</button>
+                    </span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-          {/* Filter Tab: Chat vs Analisis */}
-          <div className="chat-type-tabs">
-            <button
-              type="button"
-              className={`chat-tab-btn ${activeTab === "chat" ? "active" : ""}`}
-              onClick={() => setActiveTab("chat")}
-            >
-              Obrolan
-            </button>
-            <button
-              type="button"
-              className={`chat-tab-btn ${activeTab === "analisis" ? "active" : ""}`}
-              onClick={() => setActiveTab("analisis")}
-            >
-              Sesi Analisis
-            </button>
-          </div>
-
-          {/* Non-permanent Warning Banner */}
-          {!isPermanen && (
-            <div className="non-permanent-warning-box">
-              <IconAlertTriangle className="icon-warn-tiny" />
-              <span>
-                Percakapan disimpan sementara di memori server dan akan hilang bila server di-restart.
-              </span>
+      <section className="wg-panel wg-chat-utas" aria-label="Percakapan dengan agen">
+        <div className="wg-chat-pesan" aria-live="polite">
+          {pesan.length === 0 && (
+            <div className="wg-chat-awal">
+              <p>Agen menjawab dari hasil lapis 1, manual contoh, dokumen aktif, dan riwayat keputusan. Agen tidak bisa mengubah work order tanpa petugas.</p>
+              <div className="wg-baris-aksi">
+                {CONTOH.map((c) => <button key={c} type="button" className="wg-tombol kecil" disabled={!isAgentActive} onClick={() => kirim(c)}>{c}</button>)}
+              </div>
             </div>
           )}
-
-          {/* List of past conversations */}
-          <div className="conversations-scroll-list">
-            {conversations.length > 0 ? (
-              conversations.map((c) => {
-                const isSelected = c.id === currentSessionId;
-                const isEditing = editingId === c.id;
-
-                return (
-                  <div
-                    key={c.id}
-                    className={`conversation-item-card ${isSelected ? "selected" : ""}`}
-                    onClick={() => handleSelectConversation(c.id)}
-                  >
-                    {isEditing ? (
-                      <div className="edit-title-form" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          className="edit-title-input"
-                          value={editTitleInput}
-                          onChange={(e) => setEditTitleInput(e.target.value)}
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          className="btn-save-title"
-                          onClick={() => handleSaveTitle(c.id)}
-                        >
-                          Simpan
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="conv-title-row">
-                          <strong className="conv-title-text">{c.judul || "Tanpa Judul"}</strong>
-                          <div className="conv-actions-hover">
-                            <button
-                              type="button"
-                              className="conv-action-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingId(c.id);
-                                setEditTitleInput(c.judul || "");
-                              }}
-                              title="Ganti judul percakapan"
-                            >
-                              <IconEdit className="icon-mini" />
-                            </button>
-                            <button
-                              type="button"
-                              className="conv-action-btn delete"
-                              onClick={(e) => handleDeleteConversation(c.id, e)}
-                              title="Hapus percakapan ini"
-                            >
-                              <IconTrash className="icon-mini" />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="conv-snippet-text">{c.cuplikan || "..."}</p>
-                        <div className="conv-meta-row">
-                          <span className="conv-time-text">
-                            {c.diperbarui ? c.diperbarui.slice(0, 10) : "Hari ini"}
-                          </span>
-                          <span className="conv-badge-msg">{c.jumlah_pesan || 2} pesan</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="conversations-empty-note">
-                Belum ada riwayat percakapan {activeTab === "analisis" ? "analisis" : "obrolan"}.
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Clear All Button */}
-          {conversations.length > 0 && (
-            <div className="chat-sidebar-footer">
-              <button
-                type="button"
-                className="btn-clear-all-chat"
-                onClick={handleDeleteAll}
-              >
-                <IconTrash className="icon-tiny" />
-                <span>Hapus Semua Percakapan</span>
-              </button>
+          {pesan.map((m, i) => (
+            <div key={i} className={`wg-gelembung ${m.dari}`}>
+              {m.dari === "agen" ? (
+                <>
+                  <Teks isi={m.teks || "Agen tidak memberi jawaban akhir."} />
+                  <LogAgen langkah={m.langkah} />
+                </>
+              ) : m.teks}
             </div>
-          )}
-        </aside>
-
-        {/* Right Main Container: Area Obrolan */}
-        <main className="chat-main-viewport">
-          {/* Header Area Obrolan */}
-          <div className="chat-main-header">
-            <div className="chat-title-group">
-              <div className="chat-avatar-pill">
-                <IconHeadset className="chat-avatar-icon" />
-              </div>
-              <div>
-                <h2 className="chat-room-title">
-                  {currentSessionId
-                    ? conversations.find((c) => c.id === currentSessionId)?.judul || "Sesi Obrolan Aktif"
-                    : "Percakapan Baru dengan Agen Sintelis"}
-                </h2>
-                <p className="chat-room-sub">
-                  {isAgentActive
-                    ? "Asisten Siaga • Berbasis Regulasi PD 10A & Manual Pemeliharaan KAI"
-                    : "Agen AI dinonaktifkan oleh petugas"}
-                </p>
-              </div>
-            </div>
-
-            {currentSessionId && (
-              <span className="session-id-pill" title={`Session ID: ${currentSessionId}`}>
-                ID Sesi: {currentSessionId.slice(0, 14)}…
-              </span>
-            )}
-          </div>
-
-          {/* Quick Prompts Bar */}
-          <div className="chat-quick-prompts-bar">
-            {quickPrompts.map((q, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="quick-prompt-btn"
-                onClick={() => handleSend(q)}
-                disabled={isBusy || !isAgentActive}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-
-          {/* Messages Stream */}
-          <div className="chat-messages-stream">
-            {messages.map((m, i) => (
-              <div key={i} className={`chat-message-row ${m.dari}`}>
-                <div className={`chat-speech-bubble ${m.dari}`}>
-                  {m.dari === "agen" ? (
-                    <>
-                      <Teks isi={m.teks || "(tanpa jawaban)"} />
-                      {m.langkah && <LogAgen langkah={m.langkah} />}
-                    </>
-                  ) : (
-                    <span>{m.teks}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {isBusy && (
-              <div className="chat-message-row agen">
-                <div className="chat-speech-bubble agen thinking-state">
-                  <span className="dot-flashing" />
-                  <span>Agen sedang membaca data sensor, regulasi PD 10A, dan manual…</span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Bar Form */}
-          <form
-            className="chat-input-bar-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-          >
-            <input
-              type="text"
-              className="chat-prompt-input"
-              placeholder={
-                isAgentActive
-                  ? "Ketik pertanyaan teknis, nama wesel, atau konsultasi SOP..."
-                  : "Agen AI sedang nonaktif"
-              }
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={!isAgentActive || isBusy}
-            />
-            <button
-              type="submit"
-              className="chat-send-submit-btn"
-              disabled={!isAgentActive || isBusy || !input.trim()}
-              title="Kirim pesan ke agen"
-            >
-              <IconSend className="send-icon-btn" />
-              <span>Kirim</span>
-            </button>
-          </form>
-        </main>
-      </div>
+          ))}
+          {sibuk && <p className="wg-sedang">Agen sedang bekerja</p>}
+          <div ref={akhir} />
+        </div>
+        <form className="wg-chat-isian" onSubmit={(e) => { e.preventDefault(); kirim(); }}>
+          <textarea
+            className="wg-input"
+            rows={2}
+            placeholder={isAgentActive ? "Tulis pertanyaan untuk agen" : "Agen sedang dihentikan petugas"}
+            value={isian}
+            disabled={!isAgentActive}
+            onChange={(e) => setIsian(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); kirim(); } }}
+            aria-label="Pertanyaan"
+          />
+          <button className="wg-tombol utama" type="submit" disabled={sibuk || !isAgentActive || !isian.trim()}>Kirim</button>
+        </form>
+      </section>
     </div>
   );
 }

@@ -1,185 +1,60 @@
-import React, { useState, useEffect } from "react";
-import { IconBell, IconX } from "../Icons.jsx";
+import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
 
-const LEVEL_LABELS = {
-  kritis: { label: "Kritis", color: "kritis" },
-  peringatan: { label: "Peringatan", color: "peringatan" },
-  info: { label: "Info", color: "info" },
-};
+const LAMPU_TINGKAT = { kritis: "merah", peringatan: "kuning", info: "mati" };
 
-export default function NotificationPopover({
-  isOpen,
-  onClose,
-  onSelectWesel,
-  onNavigate,
-  onNotificationUpdated,
-}) {
-  const [filterUnread, setFilterUnread] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+function waktu(t) {
+  return t ? new Date(t).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+}
 
-  const loadNotifications = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.notifikasi(filterUnread, 30);
-      setNotifications(res.notifikasi || []);
-      setUnreadCount(res.belum_dibaca || 0);
-    } catch (err) {
-      console.error("Gagal memuat notifikasi:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+export default function NotificationPopover({ isOpen, onClose, onSelectWesel, onNavigate, onNotificationUpdated }) {
+  const [daftar, setDaftar] = useState(null);
+  const [belum, setBelum] = useState(false);
+  const [galat, setGalat] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      loadNotifications();
-    }
-  }, [isOpen, filterUnread]);
-
-  const handleMarkAsRead = async (id, e) => {
-    e.stopPropagation();
-    try {
-      await api.notifikasiBaca(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, dibaca: true } : n))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-      onNotificationUpdated && onNotificationUpdated();
-    } catch (err) {
-      console.error("Gagal menandai notifikasi:", err);
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    try {
-      await api.notifikasiBacaSemua();
-      setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
-      setUnreadCount(0);
-      onNotificationUpdated && onNotificationUpdated();
-    } catch (err) {
-      console.error("Gagal menandai semua dibaca:", err);
-    }
-  };
+  const muat = () => api.notifikasi(belum, 30).then((r) => { setDaftar(r.notifikasi || []); setGalat(""); }).catch((e) => setGalat(e.message));
+  useEffect(() => { if (isOpen) muat(); }, [isOpen, belum]);
 
   if (!isOpen) return null;
 
+  async function bacaSemua() {
+    await api.notifikasiBacaSemua().catch(() => {});
+    muat();
+    onNotificationUpdated?.();
+  }
+
+  function buka(n) {
+    if (!n.dibaca) api.notifikasiBaca(n.id).then(() => onNotificationUpdated?.()).catch(() => {});
+    if (n.jenis === "keputusan" || (n.ref_id && /^(WO|ESK)-/.test(n.ref_id))) onNavigate("workorders");
+    else if (n.wesel_id) { onSelectWesel?.(n.wesel_id); }
+    else if (n.jenis === "dokumen") onNavigate("dokumen");
+    onClose();
+  }
+
   return (
-    <div className="notification-popover" onClick={(e) => e.stopPropagation()}>
-      {/* Popover Header */}
-      <div className="notif-popover-header">
-        <div className="notif-header-title-row">
-          <IconBell className="notif-header-icon" />
-          <h3 className="notif-title">Notifikasi Tersimpan</h3>
-          {unreadCount > 0 && (
-            <span className="notif-unread-count-pill">{unreadCount} baru</span>
-          )}
-        </div>
-        <button
-          type="button"
-          className="notif-close-btn"
-          onClick={onClose}
-          aria-label="Tutup notifikasi"
-        >
-          <IconX className="close-icon" />
-        </button>
-      </div>
-
-      {/* Filter Tabs & Mark All Read */}
-      <div className="notif-filter-bar">
-        <div className="notif-tabs">
-          <button
-            type="button"
-            className={`notif-tab ${!filterUnread ? "active" : ""}`}
-            onClick={() => setFilterUnread(false)}
-          >
-            Semua
-          </button>
-          <button
-            type="button"
-            className={`notif-tab ${filterUnread ? "active" : ""}`}
-            onClick={() => setFilterUnread(true)}
-          >
-            Belum Dibaca
-          </button>
-        </div>
-
-        {unreadCount > 0 && (
-          <button
-            type="button"
-            className="notif-mark-all-btn"
-            onClick={handleMarkAllRead}
-          >
-            Tandai Semua Dibaca
-          </button>
-        )}
-      </div>
-
-      {/* Notifications List */}
-      <div className="notif-items-list">
-        {isLoading ? (
-          <div className="notif-loading">Memuat notifikasi…</div>
-        ) : notifications.length === 0 ? (
-          <div className="notif-empty">
-            <p>Tidak ada notifikasi {filterUnread ? "yang belum dibaca" : ""}.</p>
-          </div>
-        ) : (
-          notifications.map((n) => {
-            const levelInfo = LEVEL_LABELS[n.tingkat] || { label: n.tingkat, color: "info" };
-            return (
-              <div
-                key={n.id}
-                className={`notif-card ${!n.dibaca ? "unread" : ""} ${levelInfo.color}`}
-                onClick={() => {
-                  if (n.wesel_id) {
-                    onSelectWesel && onSelectWesel(n.wesel_id);
-                    if (onNavigate) onNavigate("detail", { weselId: n.wesel_id });
-                  } else if (n.jenis === "work_order" || n.jenis === "keputusan") {
-                    if (onNavigate) onNavigate("workorders");
-                  } else if (n.jenis === "dokumen") {
-                    if (onNavigate) onNavigate("dokumen");
-                  }
-                  if (!n.dibaca) {
-                    api.notifikasiBaca(n.id).then(() => {
-                      setNotifications((prev) =>
-                        prev.map((item) => (item.id === n.id ? { ...item, dibaca: true } : item))
-                      );
-                      setUnreadCount((c) => Math.max(0, c - 1));
-                      onNotificationUpdated && onNotificationUpdated();
-                    });
-                  }
-                  onClose();
-                }}
-              >
-                <div className="notif-card-top">
-                  <span className={`notif-level-badge ${levelInfo.color}`}>
-                    {levelInfo.label}
-                  </span>
-                  {n.wesel_id && (
-                    <span className="notif-wesel-id">{n.wesel_id}</span>
-                  )}
-                  <span className="notif-time">
-                    {n.ts ? n.ts.replace("T", " ").slice(5, 16) : ""}
-                  </span>
-                  {!n.dibaca && (
-                    <button
-                      type="button"
-                      className="notif-dot-unread"
-                      title="Klik untuk tandai sudah dibaca"
-                      onClick={(e) => handleMarkAsRead(n.id, e)}
-                    />
-                  )}
-                </div>
-
-                <h4 className="notif-card-title">{n.judul}</h4>
-                {n.pesan && <p className="notif-card-message">{n.pesan}</p>}
-              </div>
-            );
-          })
-        )}
-      </div>
+    <div className="wg-notif" role="dialog" aria-label="Notifikasi">
+      <header>
+        <h3>Notifikasi</h3>
+        <label><input type="checkbox" checked={belum} onChange={(e) => setBelum(e.target.checked)} /> Belum dibaca saja</label>
+        <button type="button" className="wg-tautan" onClick={bacaSemua}>Tandai semua dibaca</button>
+      </header>
+      {galat && <p className="wg-galat" style={{ padding: "8px 14px" }}>{galat}</p>}
+      {!daftar && !galat && <p className="wg-sedang" style={{ padding: "10px 14px" }}>Memuat</p>}
+      {daftar?.length === 0 && <p className="wg-kosong" style={{ padding: "10px 14px" }}>Tidak ada notifikasi.</p>}
+      <ul>
+        {daftar?.map((n) => (
+          <li key={n.id} className={n.dibaca ? "" : "baru"}>
+            <button type="button" onClick={() => buka(n)}>
+              <span className={`wg-lampu ${LAMPU_TINGKAT[n.tingkat] || "mati"}`} aria-hidden="true" />
+              <span className="isi">
+                <b>{n.judul}</b>
+                {n.pesan && <span>{n.pesan}</span>}
+                <small>{waktu(n.ts)}{n.dibaca ? "" : ", belum dibaca"}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

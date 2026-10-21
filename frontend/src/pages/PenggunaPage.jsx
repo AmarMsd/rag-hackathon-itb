@@ -1,627 +1,145 @@
 import React, { useEffect, useState } from "react";
-import {
-  IconUsers,
-  IconShield,
-  IconPlus,
-  IconEdit,
-  IconKey,
-  IconAlertTriangle,
-  IconCheck,
-  IconX,
-} from "../Icons.jsx";
 import { api } from "../api.js";
+import { PERAN } from "../kondisi.js";
 
-const ROLE_OPTIONS = [
-  { id: "admin", label: "Admin (Kelola Akun & Semua Fitur)" },
-  { id: "petugas", label: "Petugas Sintelis (Operasional & Analisis)" },
-  { id: "pengelola", label: "Pengelola (Kelola Dokumen Pengetahuan)" },
-  { id: "pengamat", label: "Pengamat (Hanya Melihat / Read-Only)" },
-];
+const URAIAN_PERAN = {
+  admin: "Admin: semua tindakan, termasuk akun",
+  petugas: "Petugas: analisis agen dan keputusan work order",
+  pengelola: "Pengelola: dokumen pengetahuan",
+  pengamat: "Pengamat: hanya melihat",
+};
+
+function PilihPeran({ value, onChange }) {
+  return (
+    <select className="wg-input" value={value} onChange={(e) => onChange(e.target.value)}>
+      {Object.entries(URAIAN_PERAN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+    </select>
+  );
+}
+
+function tgl(t) {
+  return t ? new Date(t).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "–";
+}
 
 export default function PenggunaPage({ currentUser }) {
-  const [users, setUsers] = useState([]);
-  const [audits, setAudits] = useState([]);
-  const [activeTab, setActiveTab] = useState("akun"); // 'akun' | 'audit'
-  const [isLoading, setIsLoading] = useState(true);
+  const [akun, setAkun] = useState(null);
+  const [audit, setAudit] = useState([]);
+  const [tab, setTab] = useState("akun");
+  const [galat, setGalat] = useState("");
+  const [info, setInfo] = useState("");
+  const [baru, setBaru] = useState(null);
+  const [ubah, setUbah] = useState(null);
+  const [reset, setReset] = useState(null);
 
-  // Form Tambah Akun Modal
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [newNama, setNewNama] = useState("");
-  const [newPeran, setNewPeran] = useState("petugas");
-  const [newPassword, setNewPassword] = useState("");
-  const [addError, setAddError] = useState("");
-  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const muat = () => Promise.all([api.pengguna(), api.auditPengguna(50).catch(() => [])])
+    .then(([a, b]) => { setAkun(a); setAudit(b); })
+    .catch((e) => setGalat(e.message));
+  useEffect(() => { muat(); }, []);
 
-  // Modal Edit Akun
-  const [editingUser, setEditingUser] = useState(null);
-  const [editNama, setEditNama] = useState("");
-  const [editPeran, setEditPeran] = useState("petugas");
-  const [editError, setEditError] = useState("");
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-
-  // Modal Reset Sandi
-  const [resettingUser, setResettingUser] = useState(null);
-  const [newResetPassword, setNewResetPassword] = useState("");
-  const [resetError, setResetError] = useState("");
-  const [resetSuccess, setResetSuccess] = useState("");
-  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [uList, aList] = await Promise.all([
-        api.pengguna(),
-        api.auditPengguna(50).catch(() => []),
-      ]);
-      setUsers(uList || []);
-      setAudits(aList || []);
-    } catch (err) {
-      console.error("Gagal memuat pengguna:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Submit Tambah Akun
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
-    if (!newUsername.trim() || !newNama.trim() || !newPassword) {
-      setAddError("Semua field wajib diisi.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setAddError("Kata sandi minimal 8 karakter.");
-      return;
-    }
-
-    setIsSubmittingAdd(true);
-    setAddError("");
-    try {
-      await api.tambahPengguna({
-        username: newUsername.trim().toLowerCase(),
-        nama: newNama.trim(),
-        peran: newPeran,
-        password: newPassword,
-      });
-      setIsAddOpen(false);
-      setNewUsername("");
-      setNewNama("");
-      setNewPassword("");
-      loadData();
-    } catch (err) {
-      setAddError(err.message || "Gagal menambahkan akun.");
-    } finally {
-      setIsSubmittingAdd(false);
-    }
-  };
-
-  // Submit Edit Akun (Nama / Peran)
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!editingUser) return;
-
-    setIsSubmittingEdit(true);
-    setEditError("");
-    try {
-      await api.ubahPengguna(editingUser.username, {
-        nama: editNama.trim(),
-        peran: editPeran,
-      });
-      setEditingUser(null);
-      loadData();
-    } catch (err) {
-      setEditError(err.message || "Gagal mengubah akun.");
-    } finally {
-      setIsSubmittingEdit(false);
-    }
-  };
-
-  // Toggle Aktif / Nonaktif
-  const handleToggleAktif = async (user) => {
-    // Sembunyikan/cegah nonaktifkan akun sendiri
-    if (user.username === currentUser?.username) {
-      alert("Anda tidak bisa menonaktifkan akun sendiri.");
-      return;
-    }
-
-    const nextAction = user.aktif ? "nonaktifkan" : "aktifkan";
-    if (!confirm(`Yakin ingin ${nextAction} akun ${user.username}?`)) return;
-
-    try {
-      await api.aturPengguna(user.username, nextAction);
-      loadData();
-    } catch (err) {
-      alert(`Gagal ${nextAction} akun: ${err.message}`);
-    }
-  };
-
-  // Reset Sandi
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    if (!resettingUser) return;
-    if (newResetPassword.length < 8) {
-      setResetError("Kata sandi baru minimal 8 karakter.");
-      return;
-    }
-
-    setIsSubmittingReset(true);
-    setResetError("");
-    setResetSuccess("");
-    try {
-      const res = await api.aturPengguna(resettingUser.username, "reset-sandi", {
-        password_baru: newResetPassword,
-      });
-      setResetSuccess(res.pesan || "Kata sandi berhasil diatur ulang.");
-      setTimeout(() => {
-        setResettingUser(null);
-        setNewResetPassword("");
-        setResetSuccess("");
-      }, 1500);
-      loadData();
-    } catch (err) {
-      setResetError(err.message || "Gagal mereset kata sandi.");
-    } finally {
-      setIsSubmittingReset(false);
-    }
-  };
+  async function jalankan(fn, sukses) {
+    setGalat(""); setInfo("");
+    try { const r = await fn(); setInfo(r?.pesan || sukses); await muat(); return true; }
+    catch (err) { setGalat(err.message); return false; }
+  }
 
   return (
-    <div className="page-view pengguna-page">
-      {/* Page Header */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Kelola Akun &amp; Hak Akses</h1>
-          <p className="page-desc">
-            Manajemen pengguna sistem WeselGuard, penetapan peran (RBAC), audit keamanan, dan reset kata sandi.
-          </p>
-        </div>
+    <section className="wg-panel">
+      <header>
+        <h2>Akun pengguna</h2>
+        <p>Hanya admin yang melihat halaman ini. Setiap perubahan tercatat di riwayat.</p>
+        {!baru && <button className="wg-tombol utama wg-kanan" type="button" onClick={() => setBaru({ username: "", nama: "", peran: "petugas", password: "" })}>Tambah akun</button>}
+      </header>
 
-        <button
-          type="button"
-          className="btn-primary-action"
-          onClick={() => setIsAddOpen(true)}
-          title="Tambah akun pengguna baru"
-        >
-          <IconPlus className="btn-icon-left" />
-          <span>Tambah Akun Baru</span>
-        </button>
+      {baru && (
+        <form className="wg-panel-isi wg-form wg-form-baris" onSubmit={async (e) => {
+          e.preventDefault();
+          if (await jalankan(() => api.tambahPengguna({ ...baru, username: baru.username.trim().toLowerCase(), nama: baru.nama.trim() }), `Akun ${baru.username} dibuat.`)) setBaru(null);
+        }}>
+          <label>Nama pengguna<input className="wg-input" value={baru.username} onChange={(e) => setBaru({ ...baru, username: e.target.value })} required /></label>
+          <label>Nama lengkap<input className="wg-input" value={baru.nama} onChange={(e) => setBaru({ ...baru, nama: e.target.value })} required /></label>
+          <label>Peran<PilihPeran value={baru.peran} onChange={(v) => setBaru({ ...baru, peran: v })} /></label>
+          <label>Kata sandi awal<input className="wg-input" type="password" autoComplete="new-password" value={baru.password} onChange={(e) => setBaru({ ...baru, password: e.target.value })} required minLength={8} /></label>
+          <div className="wg-baris-aksi"><button className="wg-tombol utama" type="submit">Buat akun</button><button className="wg-tombol" type="button" onClick={() => setBaru(null)}>Batal</button></div>
+        </form>
+      )}
+
+      <div className="wg-tab" role="tablist" style={{ padding: "0 20px" }}>
+        <button role="tab" aria-selected={tab === "akun"} onClick={() => setTab("akun")}>Akun ({akun?.length ?? 0})</button>
+        <button role="tab" aria-selected={tab === "audit"} onClick={() => setTab("audit")}>Riwayat perubahan ({audit.length})</button>
       </div>
+      {(galat || info) && <p className={`wg-panel-isi ${galat ? "wg-galat" : "wg-berhasil"}`} role="status" style={{ paddingBottom: 0 }}>{galat || info}</p>}
 
-      {/* Navigation Tabs */}
-      <div className="pengguna-tabs-bar">
-        <button
-          type="button"
-          className={`pengguna-tab-btn ${activeTab === "akun" ? "active" : ""}`}
-          onClick={() => setActiveTab("akun")}
-        >
-          <IconUsers className="icon-tiny" />
-          <span>Daftar Pengguna ({users.length})</span>
-        </button>
-        <button
-          type="button"
-          className={`pengguna-tab-btn ${activeTab === "audit" ? "active" : ""}`}
-          onClick={() => setActiveTab("audit")}
-        >
-          <IconShield className="icon-tiny" />
-          <span>Riwayat Audit Perubahan ({audits.length})</span>
-        </button>
-      </div>
-
-      {/* Main Content View */}
-      {activeTab === "akun" ? (
-        <div className="card pengguna-table-card">
-          <div className="table-responsive-wrapper">
-            <table className="custom-table pengguna-table">
-              <thead>
-                <tr>
-                  <th>Pengguna</th>
-                  <th>Nama Lengkap</th>
-                  <th>Peran</th>
-                  <th>Status Akun</th>
-                  <th>Terdaftar</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
+      {tab === "akun" && (
+        !akun ? <p className="wg-sedang wg-panel-isi">Memuat</p> : (
+          <div className="wg-tabel-bungkus">
+            <table className="wg-tabel">
+              <thead><tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Masuk terakhir</th><th /></tr></thead>
               <tbody>
-                {users.map((u) => {
-                  const isSelf = u.username === currentUser?.username;
-
+                {akun.map((u) => {
+                  const diri = u.username === currentUser?.username;
+                  if (ubah?.username === u.username) {
+                    return (
+                      <tr key={u.username}>
+                        <td><input className="wg-input" value={ubah.nama} onChange={(e) => setUbah({ ...ubah, nama: e.target.value })} aria-label="Nama lengkap" /><div className="wg-redup">{u.username}</div></td>
+                        <td colSpan={3}><PilihPeran value={ubah.peran} onChange={(v) => setUbah({ ...ubah, peran: v })} /></td>
+                        <td><div className="wg-baris-aksi" style={{ justifyContent: "flex-end" }}>
+                          <button className="wg-tombol kecil utama" type="button" onClick={async () => (await jalankan(() => api.ubahPengguna(u.username, { nama: ubah.nama.trim(), peran: ubah.peran }), "Akun diperbarui.")) && setUbah(null)}>Simpan</button>
+                          <button className="wg-tombol kecil" type="button" onClick={() => setUbah(null)}>Batal</button>
+                        </div></td>
+                      </tr>
+                    );
+                  }
                   return (
-                    <tr key={u.username} className={isSelf ? "self-row" : ""}>
-                      <td>
-                        <div className="user-id-block">
-                          <strong>@{u.username}</strong>
-                          {isSelf && <span className="self-tag">Akun Anda</span>}
-                        </div>
-                      </td>
-                      <td>{u.nama}</td>
-                      <td>
-                        <span className={`role-badge role-${u.peran}`}>
-                          {u.peran?.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status-pill ${u.aktif ? "normal" : "bahaya"}`}>
-                          {u.aktif ? "Aktif" : "Nonaktif"}
-                        </span>
-                      </td>
-                      <td>{u.dibuat ? u.dibuat.slice(0, 10) : "-"}</td>
-                      <td>
-                        <div className="user-actions-row">
-                          {/* Sembunyikan tombol ubah peran pada baris akun admin itu sendiri */}
-                          {!isSelf && (
-                            <button
-                              type="button"
-                              className="user-action-btn edit"
-                              onClick={() => {
-                                setEditingUser(u);
-                                setEditNama(u.nama);
-                                setEditPeran(u.peran);
-                                setEditError("");
-                              }}
-                              title="Ubah nama atau peran"
-                            >
-                              <IconEdit className="icon-tiny" />
-                              <span>Ubah</span>
+                    <React.Fragment key={u.username}>
+                      <tr>
+                        <td><b>{u.nama}</b><div className="wg-redup">{u.username}{diri ? ", akun Anda" : ""}</div></td>
+                        <td>{PERAN[u.peran] || u.peran}</td>
+                        <td><span className="wg-status" style={{ fontWeight: 500 }}><span className={`wg-lampu ${u.aktif ? "hijau" : "mati"}`} />{u.aktif ? "Aktif" : "Diblokir"}</span></td>
+                        <td className="wg-redup">{tgl(u.masuk_terakhir)}</td>
+                        <td><div className="wg-baris-aksi" style={{ justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                          <button className="wg-tombol kecil" type="button" onClick={() => setUbah({ username: u.username, nama: u.nama, peran: u.peran })}>Ubah</button>
+                          <button className="wg-tombol kecil" type="button" onClick={() => setReset({ username: u.username, password_baru: "" })}>Atur ulang sandi</button>
+                          {!diri && (
+                            <button className={`wg-tombol kecil ${u.aktif ? "bahaya" : ""}`} type="button"
+                              onClick={() => window.confirm(`${u.aktif ? "Blokir" : "Aktifkan lagi"} akun ${u.username}?`) && jalankan(() => api.aturPengguna(u.username, u.aktif ? "nonaktifkan" : "aktifkan"), "Status akun diubah.")}>
+                              {u.aktif ? "Blokir" : "Aktifkan"}
                             </button>
                           )}
-
-                          <button
-                            type="button"
-                            className="user-action-btn reset"
-                            onClick={() => {
-                              setResettingUser(u);
-                              setNewResetPassword("");
-                              setResetError("");
-                              setResetSuccess("");
-                            }}
-                            title="Reset kata sandi akun ini"
-                          >
-                            <IconKey className="icon-tiny" />
-                            <span>Reset Sandi</span>
-                          </button>
-
-                          {/* Sembunyikan tombol nonaktifkan pada baris akun admin itu sendiri */}
-                          {!isSelf && (
-                            <button
-                              type="button"
-                              className={`user-action-btn toggle ${u.aktif ? "deactivate" : "activate"}`}
-                              onClick={() => handleToggleAktif(u)}
-                              title={u.aktif ? "Nonaktifkan akun" : "Aktifkan akun"}
-                            >
-                              {u.aktif ? "Nonaktifkan" : "Aktifkan"}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                        </div></td>
+                      </tr>
+                      {reset?.username === u.username && (
+                        <tr><td colSpan={5}>
+                          <form className="wg-baris-aksi" onSubmit={async (e) => { e.preventDefault(); (await jalankan(() => api.aturPengguna(u.username, "reset-sandi", { password_baru: reset.password_baru }), "Kata sandi diatur ulang.")) && setReset(null); }}>
+                            <input className="wg-input" type="password" autoComplete="new-password" placeholder={`Kata sandi baru untuk ${u.username}, minimal 8 karakter`} style={{ flex: 1 }} value={reset.password_baru} onChange={(e) => setReset({ ...reset, password_baru: e.target.value })} required minLength={8} />
+                            <button className="wg-tombol kecil utama" type="submit">Simpan sandi baru</button>
+                            <button className="wg-tombol kecil" type="button" onClick={() => setReset(null)}>Batal</button>
+                          </form>
+                          <small className="wg-redup">Semua sesi akun ini akan dikeluarkan.</small>
+                        </td></tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        </div>
-      ) : (
-        /* Tab Audit History */
-        <div className="card audit-table-card">
-          <div className="card-header-bar">
-            <div>
-              <h2 className="card-heading">Riwayat Audit Perubahan Akun</h2>
-              <p className="card-subheading">Rekaman log keamanan setiap kali ada pembuatan akun, perubahan peran, atau reset kata sandi.</p>
-            </div>
-            <span className="table-row-count-tag">{audits.length} Catatan</span>
-          </div>
+        )
+      )}
 
-          <div className="table-responsive-wrapper">
-            <table className="custom-table audit-table">
-              <thead>
-                <tr>
-                  <th>Waktu</th>
-                  <th>Pelaku (Siapa)</th>
-                  <th>Target (Ke Siapa)</th>
-                  <th>Aksi</th>
-                  <th>Keterangan</th>
-                </tr>
-              </thead>
+      {tab === "audit" && (
+        audit.length === 0 ? <p className="wg-kosong">Belum ada perubahan akun yang tercatat.</p> : (
+          <div className="wg-tabel-bungkus">
+            <table className="wg-tabel">
+              <thead><tr><th>Waktu</th><th>Oleh</th><th>Akun</th><th>Tindakan</th><th>Rincian</th></tr></thead>
               <tbody>
-                {audits.map((a, i) => (
-                  <tr key={i}>
-                    <td><strong>{a.ts ? a.ts.replace("T", " ").slice(0, 19) : "-"}</strong></td>
-                    <td>
-                      <span className="audit-actor-tag">@{a.siapa}</span>
-                    </td>
-                    <td>
-                      <strong>@{a.ke_siapa}</strong>
-                    </td>
-                    <td>
-                      <span className={`audit-action-tag action-${a.aksi}`}>
-                        {a.aksi}
-                      </span>
-                    </td>
-                    <td>{a.keterangan || "-"}</td>
-                  </tr>
+                {audit.map((a) => (
+                  <tr key={a.id}><td className="wg-redup">{tgl(a.ts)}</td><td>{a.oleh}</td><td>{a.target}</td><td>{a.aksi.replaceAll("_", " ")}</td><td className="wg-redup">{a.detail}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )
       )}
-
-      {/* Modal 1: Tambah Akun Baru */}
-      {isAddOpen && (
-        <div className="modal-backdrop" onClick={() => setIsAddOpen(false)}>
-          <div
-            className="modal-card user-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Tambah Akun Baru"
-          >
-            <div className="modal-header">
-              <h2 className="modal-title">Tambah Akun Pengguna Baru</h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setIsAddOpen(false)}
-              >
-                <IconX className="close-icon" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddSubmit} className="modal-body">
-              {addError && (
-                <div className="modal-error-alert">
-                  <IconAlertTriangle className="icon-tiny" />
-                  <span>{addError}</span>
-                </div>
-              )}
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="new-username">
-                  Nama Pengguna (Username) <span className="req-star">*</span>
-                </label>
-                <input
-                  id="new-username"
-                  type="text"
-                  className="field-input"
-                  placeholder="Contoh: budi_sintelis"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="new-nama">
-                  Nama Lengkap <span className="req-star">*</span>
-                </label>
-                <input
-                  id="new-nama"
-                  type="text"
-                  className="field-input"
-                  placeholder="Contoh: Budi Santoso, S.T."
-                  value={newNama}
-                  onChange={(e) => setNewNama(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="new-peran">
-                  Peran / Hak Akses <span className="req-star">*</span>
-                </label>
-                <select
-                  id="new-peran"
-                  className="field-select"
-                  value={newPeran}
-                  onChange={(e) => setNewPeran(e.target.value)}
-                >
-                  {ROLE_OPTIONS.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="new-password">
-                  Kata Sandi Awal <span className="req-star">* (min. 8 karakter)</span>
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  className="field-input"
-                  placeholder="Minimal 8 karakter"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary-custom"
-                  onClick={() => setIsAddOpen(false)}
-                  disabled={isSubmittingAdd}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-action"
-                  disabled={isSubmittingAdd}
-                >
-                  {isSubmittingAdd ? "Menyimpan…" : "Buat Akun"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Ubah Nama & Peran */}
-      {editingUser && (
-        <div className="modal-backdrop" onClick={() => setEditingUser(null)}>
-          <div
-            className="modal-card user-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Ubah Akun"
-          >
-            <div className="modal-header">
-              <h2 className="modal-title">Ubah Akun: @{editingUser.username}</h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setEditingUser(null)}
-              >
-                <IconX className="close-icon" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="modal-body">
-              {editError && (
-                <div className="modal-error-alert">
-                  <IconAlertTriangle className="icon-tiny" />
-                  <span>{editError}</span>
-                </div>
-              )}
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="edit-nama">
-                  Nama Lengkap
-                </label>
-                <input
-                  id="edit-nama"
-                  type="text"
-                  className="field-input"
-                  value={editNama}
-                  onChange={(e) => setEditNama(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="edit-peran">
-                  Peran / Hak Akses
-                </label>
-                <select
-                  id="edit-peran"
-                  className="field-select"
-                  value={editPeran}
-                  onChange={(e) => setEditPeran(e.target.value)}
-                >
-                  {ROLE_OPTIONS.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary-custom"
-                  onClick={() => setEditingUser(null)}
-                  disabled={isSubmittingEdit}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-action"
-                  disabled={isSubmittingEdit}
-                >
-                  {isSubmittingEdit ? "Menyimpan…" : "Simpan Perubahan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 3: Reset Kata Sandi */}
-      {resettingUser && (
-        <div className="modal-backdrop" onClick={() => setResettingUser(null)}>
-          <div
-            className="modal-card user-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Reset Sandi"
-          >
-            <div className="modal-header">
-              <h2 className="modal-title">Reset Sandi: @{resettingUser.username}</h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setResettingUser(null)}
-              >
-                <IconX className="close-icon" />
-              </button>
-            </div>
-
-            <form onSubmit={handleResetSubmit} className="modal-body">
-              {resetError && (
-                <div className="modal-error-alert">
-                  <IconAlertTriangle className="icon-tiny" />
-                  <span>{resetError}</span>
-                </div>
-              )}
-              {resetSuccess && (
-                <div className="modal-success-alert">
-                  <IconCheck className="icon-tiny" />
-                  <span>{resetSuccess}</span>
-                </div>
-              )}
-
-              <p className="field-hint">
-                Mereset kata sandi akan otomatis mengeluarkan (invalidate) seluruh sesi login aktif milik pengguna ini di perangkat lain.
-              </p>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="reset-pass">
-                  Kata Sandi Baru <span className="req-star">* (min. 8 karakter)</span>
-                </label>
-                <input
-                  id="reset-pass"
-                  type="password"
-                  className="field-input"
-                  placeholder="Masukkan kata sandi baru"
-                  value={newResetPassword}
-                  onChange={(e) => setNewResetPassword(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary-custom"
-                  onClick={() => setResettingUser(null)}
-                  disabled={isSubmittingReset}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-action"
-                  disabled={isSubmittingReset || newResetPassword.length < 8}
-                >
-                  {isSubmittingReset ? "Mereset…" : "Atur Ulang Sandi"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }

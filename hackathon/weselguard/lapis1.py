@@ -145,8 +145,11 @@ def status_wesel(wesel_id: str) -> dict | None:
             "siklus_terakhir": akhir["ts"],
             "menit_sejak_siklus_terakhir": max(0, round(
                 (datetime.now() - datetime.fromisoformat(akhir["ts"])).total_seconds() / 60)),
+            # Wesel tanpa kolom sumber berasal dari simulasi.py. Replay KAIST nanti mengisi sumber="kaist".
+            "sumber": akhir.get("sumber") or "simulasi",
             "ciri": {"rms": akhir["rms"], "kurtosis": akhir["kurtosis"],
-                     "puncak_frekuensi_hz": akhir["puncak_hz"], "durasi_siklus_s": akhir["durasi_s"]},
+                     "puncak_frekuensi_hz": akhir["puncak_hz"], "durasi_siklus_s": akhir["durasi_s"],
+                     **{k: akhir[k] for k in ("nseg", "aktif") if akhir.get(k) is not None}},
             "tren": {k: t.get(k) for k in ("laju_per_hari", "menurun", "indeks_tertinggi",
                                            "perkiraan_hari_ke_batas_B", "perkiraan_hari_ke_batas_A")}}
 
