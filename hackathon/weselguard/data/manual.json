@@ -1,14 +1,99 @@
 [
-  {"id": "3.1", "bab": 3, "judul": "Gejala bantalan aus",
-   "isi": "Bantalan aus ditandai kenaikan RMS getaran, kurtosis tinggi di atas 5, dan puncak frekuensi tinggi di sekitar 150 sampai 170 Hz. Sering disertai bunyi gemeretak saat wesel bergerak."},
-  {"id": "3.2", "bab": 3, "judul": "Gejala poros tidak sejajar",
-   "isi": "Poros tidak sejajar ditandai RMS tinggi, puncak frekuensi sekitar dua kali frekuensi putar motor (90 sampai 100 Hz), dan durasi siklus gerak wesel lebih lama dari normal karena gesekan bertambah. Sebelum menyimpulkan, pastikan dudukan sensor tidak longgar."},
-  {"id": "3.3", "bab": 3, "judul": "Pola getaran tidak dikenal",
-   "isi": "Jika pola getaran tidak cocok dengan kondisi yang dikenal, jangan menebak penyebab. Laporkan ke teknisi ahli untuk pemeriksaan langsung."},
-  {"id": "4.1", "bab": 4, "judul": "Klasifikasi urgensi",
-   "isi": "Klasifikasi A: indeks kesehatan di bawah 40, tangani dalam 24 jam dan pertimbangkan pembatasan operasi wesel. Klasifikasi B: indeks 40 sampai 69, perbaikan terjadwal dalam 7 hari. Klasifikasi C: indeks 70 ke atas, cukup pemantauan pada pemeriksaan rutin berikutnya. Jika kerusakan yang sama pernah terjadi dan sudah ditangani sebelumnya, naikkan satu tingkat klasifikasi."},
-  {"id": "5.1", "bab": 5, "judul": "Langkah pemeriksaan bantalan aus", "kondisi": "bantalan_aus",
-   "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kelonggaran dan suara bantalan secara manual. 3. Periksa kondisi pelumas. 4. Ganti bantalan bila aus melebihi batas. 5. Uji gerak wesel tiga kali dan catat getaran setelah perbaikan."},
-  {"id": "5.2", "bab": 5, "judul": "Langkah pemeriksaan poros tidak sejajar", "kondisi": "poros_tidak_sejajar",
-   "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kekencangan dudukan sensor terlebih dahulu. 3. Ukur kelurusan poros motor dan penggerak. 4. Setel ulang kelurusan sesuai toleransi. 5. Uji gerak wesel tiga kali dan catat durasi siklus."}
+  {
+    "id": "3.1",
+    "bab": 3,
+    "judul": "Gejala bantalan aus",
+    "isi": "Bantalan aus ditandai kenaikan RMS getaran, kurtosis tinggi di atas 5, dan puncak frekuensi tinggi di sekitar 150 sampai 170 Hz. Sering disertai bunyi gemeretak saat wesel bergerak."
+  },
+  {
+    "id": "3.2",
+    "bab": 3,
+    "judul": "Gejala poros tidak sejajar",
+    "isi": "Poros tidak sejajar ditandai RMS tinggi, puncak frekuensi sekitar dua kali frekuensi putar motor (90 sampai 100 Hz), dan durasi siklus gerak wesel lebih lama dari normal karena gesekan bertambah. Sebelum menyimpulkan, pastikan dudukan sensor tidak longgar."
+  },
+  {
+    "id": "3.3",
+    "bab": 3,
+    "judul": "Pola getaran tidak dikenal",
+    "isi": "Jika pola getaran tidak cocok dengan kondisi yang dikenal, jangan menebak penyebab. Laporkan ke teknisi ahli untuk pemeriksaan langsung."
+  },
+  {
+    "id": "3.4",
+    "bab": 3,
+    "judul": "Gejala perpindahan wesel melambat",
+    "isi": "Bentuk getaran siklus gerak masih normal (satu kali gerak utuh, tanpa jeda), tetapi durasi perpindahan terus memanjang dibanding profil normal, walau masih di bawah batas 5 detik. Biasanya tanda awal gesekan bertambah pada bantalan geser lidah wesel atau kurang pelumasan. Ditangani sebagai degradasi dan peringatan dini, bukan pola asing."
+  },
+  {
+    "id": "3.5",
+    "bab": 3,
+    "judul": "Gejala perpindahan lambat dan macet",
+    "isi": "Perpindahan lambat: durasi gerak melewati batas 5 detik (PM 10/2011) tetapi gerak selesai. Macet: penggerak terus bekerja sampai batas waktu sekitar 10 detik tanpa menyelesaikan gerak, biasanya karena benda asing di antara lidah dan rel lantak atau lidah terganjal. Keduanya melanggar batas waktu perpindahan dan berbahaya untuk operasi."
+  },
+  {
+    "id": "3.6",
+    "bab": 3,
+    "judul": "Gejala slip lalu kembali",
+    "isi": "Penggerak bekerja sampai batas waktu karena lidah terganjal, kopling slip, lalu penggerak berbalik dan lidah kembali ke kedudukan semula. Terlihat sebagai gerak panjang sekitar 10 detik, jeda singkat, lalu gerak pendek. Wesel tidak berpindah kedudukan dan harus dianggap tidak aman dilalui."
+  },
+  {
+    "id": "3.7",
+    "bab": 3,
+    "judul": "Gejala penguncian tidak sempurna",
+    "isi": "Gerak utama selesai dalam durasi wajar, tetapi diikuti beberapa getaran pendek berulang di akhir siklus karena penguncian lidah tidak masuk bersih. Durasi hampir normal sehingga mudah terlewat, padahal lidah yang tidak terkunci sempurna berbahaya. Diperlakukan sebagai kondisi berbahaya."
+  },
+  {
+    "id": "4.1",
+    "bab": 4,
+    "judul": "Klasifikasi urgensi",
+    "isi": "Klasifikasi A: indeks kesehatan di bawah 40, tangani dalam 24 jam dan pertimbangkan pembatasan operasi wesel. Klasifikasi B: indeks 40 sampai 69, perbaikan terjadwal dalam 7 hari. Klasifikasi C: indeks 70 ke atas, cukup pemantauan pada pemeriksaan rutin berikutnya. Jika kerusakan yang sama pernah terjadi dan sudah ditangani sebelumnya, naikkan satu tingkat klasifikasi."
+  },
+  {
+    "id": "5.1",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan bantalan aus",
+    "kondisi": "bantalan_aus",
+    "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kelonggaran dan suara bantalan secara manual. 3. Periksa kondisi pelumas. 4. Ganti bantalan bila aus melebihi batas. 5. Uji gerak wesel tiga kali dan catat getaran setelah perbaikan."
+  },
+  {
+    "id": "5.2",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan poros tidak sejajar",
+    "kondisi": "poros_tidak_sejajar",
+    "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kekencangan dudukan sensor terlebih dahulu. 3. Ukur kelurusan poros motor dan penggerak. 4. Setel ulang kelurusan sesuai toleransi. 5. Uji gerak wesel tiga kali dan catat durasi siklus."
+  },
+  {
+    "id": "5.3",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan perpindahan melambat",
+    "kondisi": "perpindahan_melambat",
+    "isi": "1. Periksa kekencangan dudukan sensor terlebih dahulu. 2. Bersihkan dan lumasi bantalan geser lidah wesel. 3. Periksa hambatan di sepanjang lintasan lidah. 4. Ukur arus motor penggerak saat bergerak dan bandingkan dengan catatan sebelumnya. 5. Uji gerak wesel tiga kali dan catat durasi siklus."
+  },
+  {
+    "id": "5.4",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan perpindahan lambat",
+    "kondisi": "perpindahan_lambat",
+    "isi": "1. Amankan wesel sesuai prosedur keselamatan dan laporkan ke pengatur perjalanan. 2. Periksa benda asing dan hambatan di lintasan lidah. 3. Bersihkan dan lumasi bantalan geser. 4. Periksa tegangan suplai dan arus motor penggerak. 5. Uji gerak tiga kali; durasi harus di bawah 5 detik sebelum wesel dipakai lagi."
+  },
+  {
+    "id": "5.5",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan wesel macet",
+    "kondisi": "macet",
+    "isi": "1. Amankan wesel, laporkan ke pengatur perjalanan, jangan dilalui. 2. Periksa dan singkirkan benda asing di antara lidah dan rel lantak. 3. Periksa batang penggerak dan sambungannya. 4. Periksa motor dan kopling penggerak. 5. Uji gerak tiga kali ke kedua arah dan catat durasi siklus."
+  },
+  {
+    "id": "5.6",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan slip lalu kembali",
+    "kondisi": "slip",
+    "isi": "1. Amankan wesel, laporkan ke pengatur perjalanan, jangan dilalui. 2. Pastikan kedudukan lidah yang sebenarnya di lapangan. 3. Periksa ganjalan dan benda asing di lintasan lidah. 4. Periksa dan setel kopling slip penggerak. 5. Uji gerak tiga kali ke kedua arah dan catat durasi siklus."
+  },
+  {
+    "id": "5.7",
+    "bab": 5,
+    "judul": "Langkah pemeriksaan penguncian tidak sempurna",
+    "kondisi": "penguncian_tidak_sempurna",
+    "isi": "1. Amankan wesel, laporkan ke pengatur perjalanan, jangan dilalui. 2. Periksa celah lidah terhadap rel lantak pada kedudukan terkunci. 3. Periksa dan setel batang pengunci dan detektor. 4. Periksa keausan komponen pengunci. 5. Uji gerak tiga kali dan pastikan penguncian masuk bersih setiap kali."
+  }
 ]
