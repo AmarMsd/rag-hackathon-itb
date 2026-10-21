@@ -1,0 +1,110 @@
+{
+  "sumber": "rig",
+  "fitur": [
+    "dur",
+    "nseg",
+    "aktif",
+    "kurt"
+  ],
+  "z_maks": 5.0,
+  "std_min": {
+    "dur": 0.15,
+    "nseg": 0.5,
+    "aktif": 0.03,
+    "kurt": 0.08
+  },
+  "batas_pm10_detik": 5.0,
+  "profil_normal": {
+    "n": 25,
+    "mean": {
+      "dur": 3.0559,
+      "nseg": 1.0,
+      "aktif": 1.0,
+      "kurt": 1.6071
+    },
+    "std": {
+      "dur": 0.2025,
+      "nseg": 0.5,
+      "aktif": 0.03,
+      "kurt": 0.08
+    }
+  },
+  "profil_kelas": {
+    "lambat": {
+      "n": 25,
+      "mean": {
+        "dur": 6.0632,
+        "nseg": 1.0,
+        "aktif": 1.0,
+        "kurt": 1.5841
+      },
+      "std": {
+        "dur": 0.1562,
+        "nseg": 0.5,
+        "aktif": 0.03,
+        "kurt": 0.08
+      }
+    },
+    "macet": {
+      "n": 24,
+      "mean": {
+        "dur": 9.9933,
+        "nseg": 1.0417,
+        "aktif": 0.9975,
+        "kurt": 1.6079
+      },
+      "std": {
+        "dur": 0.15,
+        "nseg": 0.5,
+        "aktif": 0.03,
+        "kurt": 0.1699
+      }
+    },
+    "normal": {
+      "n": 25,
+      "mean": {
+        "dur": 3.0559,
+        "nseg": 1.0,
+        "aktif": 1.0,
+        "kurt": 1.6071
+      },
+      "std": {
+        "dur": 0.2025,
+        "nseg": 0.5,
+        "aktif": 0.03,
+        "kurt": 0.08
+      }
+    },
+    "penguncian": {
+      "n": 24,
+      "mean": {
+        "dur": 4.1978,
+        "nseg": 4.0417,
+        "aktif": 0.9146,
+        "kurt": 1.9337
+      },
+      "std": {
+        "dur": 0.1969,
+        "nseg": 0.5,
+        "aktif": 0.03,
+        "kurt": 0.08
+      }
+    },
+    "slip": {
+      "n": 25,
+      "mean": {
+        "dur": 13.508,
+        "nseg": 2.0,
+        "aktif": 0.9665,
+        "kurt": 1.634
+      },
+      "std": {
+        "dur": 0.15,
+        "nseg": 0.5,
+        "aktif": 0.03,
+        "kurt": 0.08
+      }
+    }
+  },
+  "catatan": "Label kondisi hanya untuk melatih; tidak dikirim ke agen."
+}

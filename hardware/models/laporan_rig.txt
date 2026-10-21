@@ -1,0 +1,37 @@
+Data latih: 123 siklus {'slip': 25, 'normal': 25, 'lambat': 25, 'penguncian': 24, 'macet': 24}
+Data uji:   55 siklus {'normal': 10, 'macet': 10, 'tak_dikenal': 10, 'slip': 9, 'penguncian': 8, 'lambat': 8}
+Fitur: ['dur', 'nseg', 'aktif', 'kurt']; Z_MAKS 5.0; batas PM 10: dur > 5.0 dtk
+
+Validasi silang 5 lipat (latih): akurasi 99.2%
+Latih yang tertolak sebagai tidak dikenal: 0 dari 123
+
+=== HASIL DATA UJI ===
+Akurasi keseluruhan (6 kondisi, termasuk tidak dikenal): 100.0% (55/55)
+Kondisi dikenal: 100.0% benar; 0 salah tertolak sebagai tidak dikenal
+Pola tidak dikenal: 10/10 tertangkap sebagai tidak dikenal (agen harus eskalasi)
+Aturan PM 10 (dur > 5 dtk) cocok dengan kondisi lambat/macet/slip: 100.0%
+
+Matriks kebingungan (baris = sebenarnya, kolom = prediksi):
+             lambat  macet  normal  penguncian  slip  tak_dikenal
+lambat            8      0       0           0     0            0
+macet             0     10       0           0     0            0
+normal            0      0      10           0     0            0
+penguncian        0      0       0           8     0            0
+slip              0      0       0           0     9            0
+tak_dikenal       0      0       0           0     0           10
+
+              precision    recall  f1-score   support
+
+      lambat       1.00      1.00      1.00         8
+       macet       1.00      1.00      1.00        10
+      normal       1.00      1.00      1.00        10
+  penguncian       1.00      1.00      1.00         8
+        slip       1.00      1.00      1.00         9
+ tak_dikenal       1.00      1.00      1.00        10
+
+    accuracy                           1.00        55
+   macro avg       1.00      1.00      1.00        55
+weighted avg       1.00      1.00      1.00        55
+
+
+Pentingnya fitur: dur 0.52, aktif 0.17, kurt 0.16, nseg 0.15
