@@ -1,4 +1,5 @@
-"""Mengelola akun login dashboard WeselGuard.
+"""Mengelola akun login dashboard WeselGuard dari terminal Pi.
+Dipakai terutama untuk membuat akun admin PERTAMA; setelah itu akun bisa dikelola lewat API /api/pengguna.
 
 Pemakaian:
   python kelola_pengguna.py tambah budi "Budi Santoso" petugas
@@ -7,7 +8,11 @@ Pemakaian:
   python kelola_pengguna.py nonaktif budi       # blokir akun dan keluarkan dari semua perangkat
   python kelola_pengguna.py aktif budi
 
-Peran: admin, petugas (bisa menganalisis dan memutuskan), pengamat (hanya melihat, cocok untuk juri).
+Peran:
+  admin      semua tindakan operasional
+  petugas    menganalisis dengan agen dan menyetujui/menolak work order
+  pengelola  mengunggah dan mengaktifkan dokumen pengetahuan (selain itu hanya melihat)
+  pengamat   hanya melihat, cocok untuk juri
 """
 import sys
 from getpass import getpass
@@ -27,15 +32,18 @@ try:
     if perintah[0] == "tambah" and len(perintah) == 4:
         _, username, nama, peran = perintah
         db.tambah_pengguna(username.lower(), nama, peran, minta_sandi())
+        db.catat_audit("cli", username.lower(), "buat", f"peran {peran}")
         print(f"Akun {username.lower()} ({peran}) dibuat.")
     elif perintah[0] == "daftar":
         for p in db.daftar_pengguna():
             print(f"{p['username']:<15} {p['nama']:<25} {p['peran']:<9} {'aktif' if p['aktif'] else 'nonaktif'}")
     elif perintah[0] == "sandi" and len(perintah) == 2:
         db.ganti_sandi(perintah[1].lower(), minta_sandi())
+        db.catat_audit("cli", perintah[1].lower(), "reset-sandi")
         print("Kata sandi diganti. Semua sesi akun ini telah dikeluarkan.")
     elif perintah[0] in ("aktif", "nonaktif") and len(perintah) == 2:
         db.atur_aktif(perintah[1].lower(), perintah[0] == "aktif")
+        db.catat_audit("cli", perintah[1].lower(), "aktifkan" if perintah[0] == "aktif" else "nonaktifkan")
         print(f"Akun {perintah[1].lower()} sekarang {perintah[0]}.")
     else:
         print(__doc__)

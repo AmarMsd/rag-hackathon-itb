@@ -57,7 +57,8 @@ def buat_ciri(wesel_id, hari_ke):
 def reset():
     # Menghapus data sensor, riwayat, dan work order. Akun login dan sesinya TIDAK dihapus.
     with db.koneksi() as con:
-        for tabel in ("siklus", "profil_normal", "ringkasan_harian", "riwayat", "work_orders"):
+        for tabel in ("siklus", "profil_normal", "ringkasan_harian", "riwayat", "work_orders",
+                      "notifikasi_dibaca", "notifikasi", "status_terakhir"):
             con.execute(f"DELETE FROM {tabel}")
     db.impor_json()
     awal = datetime.now().replace(minute=0, second=0, microsecond=0) - timedelta(days=HARI)

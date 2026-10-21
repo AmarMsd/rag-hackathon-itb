@@ -9,6 +9,7 @@ from datetime import datetime
 from statistics import mean, pstdev
 
 from . import database as db
+from . import notifikasi
 
 FITUR = ("rms", "kurtosis", "puncak_hz", "durasi_s")
 
@@ -83,6 +84,9 @@ def proses_siklus(wesel_id: str, ciri: dict, ts: str | None = None) -> dict:
              **{f: ciri[f] for f in FITUR}, "indeks": indeks, "skor_kecocokan": skor,
              "kondisi_kandidat": kondisi, "status": status_dari(indeks, skor)}
     db.simpan_siklus(hasil)
+    info = status_wesel(wesel_id)
+    if info:
+        notifikasi.cek_status(info, hasil["ts"])
     return hasil
 
 
@@ -116,11 +120,6 @@ def status_wesel(wesel_id: str) -> dict | None:
     if not terakhir:
         return None
     akhir = terakhir[0]
-    if akhir.get("sumber") == "rig":
-        if akhir["status"] in ("Bahaya", "Tidak dikenal"):
-            terakhir = [akhir]
-        elif akhir["status"] != "Normal":
-            terakhir = terakhir[:3]
     indeks = round(mean(s["indeks"] for s in terakhir), 1)
     t = tren(wesel_id)
     # kondisi diambil dari siklus yang memang anomali, bukan dari satu siklus terakhir saja
@@ -137,6 +136,8 @@ def status_wesel(wesel_id: str) -> dict | None:
     return {"wesel_id": wesel_id, "status": status, "indeks_kesehatan": round(indeks),
             "kondisi_kandidat": kondisi, "skor_kecocokan": skor,
             "siklus_terakhir": akhir["ts"],
+            "menit_sejak_siklus_terakhir": max(0, round(
+                (datetime.now() - datetime.fromisoformat(akhir["ts"])).total_seconds() / 60)),
             "ciri": {"rms": akhir["rms"], "kurtosis": akhir["kurtosis"],
                      "puncak_frekuensi_hz": akhir["puncak_hz"], "durasi_siklus_s": akhir["durasi_s"]},
             "tren": {k: t.get(k) for k in ("laju_per_hari", "menurun", "indeks_tertinggi",
