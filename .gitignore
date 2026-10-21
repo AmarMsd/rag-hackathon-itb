@@ -8,3 +8,4 @@ server.log
 hardware/data/
 .env
 frontend/node_modules/*
+hackathon/frontend
