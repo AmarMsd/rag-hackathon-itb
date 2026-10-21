@@ -1,0 +1,13 @@
+[
+  {
+    "id": "WO-001",
+    "wesel_id": "W-12",
+    "kondisi": "bantalan_aus",
+    "kelas": "A",
+    "ringkasan": "Deteksi bantalan aus dengan indeks kesehatan 55, kurtosis 6.4, dan puncak frekuensi 162 Hz. Sesuai Bab 3.1, ini adalah gejala bantalan aus. Kejadian berulang, sebelumnya ditangani dengan pelumasan. Urgensi dinaikkan ke Kelas A.",
+    "langkah": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kelonggaran dan suara bantalan secara manual. 3. Periksa kondisi pelumas. 4. Ganti bantalan bila aus melebihi batas. 5. Uji gerak wesel tiga kali dan catat getaran setelah perbaikan.",
+    "rujukan": "Manual 5.1",
+    "status": "MENUNGGU_PERSETUJUAN",
+    "dibuat": "2026-10-21T20:32:22"
+  }
+]

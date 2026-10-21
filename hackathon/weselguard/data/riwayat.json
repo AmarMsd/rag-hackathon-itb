@@ -1,0 +1,6 @@
+[
+  {"wesel_id": "W-12", "tanggal": "2026-09-14", "kondisi": "bantalan_aus", "kelas": "C",
+   "keputusan_petugas": "disetujui", "catatan": "Pelumasan ulang, getaran turun sementara."},
+  {"wesel_id": "W-03", "tanggal": "2026-10-05", "kondisi": "poros_tidak_sejajar", "kelas": "B",
+   "keputusan_petugas": "ditolak", "catatan": "Di lapangan ternyata baut dudukan sensor longgar, bukan poros."}
+]

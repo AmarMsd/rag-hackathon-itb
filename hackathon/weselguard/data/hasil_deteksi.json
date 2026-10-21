@@ -1,0 +1,10 @@
+{
+  "W-07": {"kondisi_kandidat": "normal", "skor_kecocokan": 0.94, "indeks_kesehatan": 92,
+           "ciri": {"rms": 0.21, "kurtosis": 3.1, "puncak_frekuensi_hz": 48, "durasi_siklus_s": 3.9}},
+  "W-12": {"kondisi_kandidat": "bantalan_aus", "skor_kecocokan": 0.86, "indeks_kesehatan": 55,
+           "ciri": {"rms": 0.58, "kurtosis": 6.4, "puncak_frekuensi_hz": 162, "durasi_siklus_s": 4.3}},
+  "W-03": {"kondisi_kandidat": "poros_tidak_sejajar", "skor_kecocokan": 0.81, "indeks_kesehatan": 35,
+           "ciri": {"rms": 0.74, "kurtosis": 4.2, "puncak_frekuensi_hz": 96, "durasi_siklus_s": 5.1}},
+  "W-21": {"kondisi_kandidat": "bantalan_aus", "skor_kecocokan": 0.31, "indeks_kesehatan": 47,
+           "ciri": {"rms": 0.66, "kurtosis": 9.8, "puncak_frekuensi_hz": 310, "durasi_siklus_s": 4.0}}
+}

@@ -1,0 +1,14 @@
+[
+  {"id": "3.1", "bab": 3, "judul": "Gejala bantalan aus",
+   "isi": "Bantalan aus ditandai kenaikan RMS getaran, kurtosis tinggi di atas 5, dan puncak frekuensi tinggi di sekitar 150 sampai 170 Hz. Sering disertai bunyi gemeretak saat wesel bergerak."},
+  {"id": "3.2", "bab": 3, "judul": "Gejala poros tidak sejajar",
+   "isi": "Poros tidak sejajar ditandai RMS tinggi, puncak frekuensi sekitar dua kali frekuensi putar motor (90 sampai 100 Hz), dan durasi siklus gerak wesel lebih lama dari normal karena gesekan bertambah. Sebelum menyimpulkan, pastikan dudukan sensor tidak longgar."},
+  {"id": "3.3", "bab": 3, "judul": "Pola getaran tidak dikenal",
+   "isi": "Jika pola getaran tidak cocok dengan kondisi yang dikenal, jangan menebak penyebab. Laporkan ke teknisi ahli untuk pemeriksaan langsung."},
+  {"id": "4.1", "bab": 4, "judul": "Klasifikasi urgensi",
+   "isi": "Klasifikasi A: indeks kesehatan di bawah 40, tangani dalam 24 jam dan pertimbangkan pembatasan operasi wesel. Klasifikasi B: indeks 40 sampai 69, perbaikan terjadwal dalam 7 hari. Klasifikasi C: indeks 70 ke atas, cukup pemantauan pada pemeriksaan rutin berikutnya. Jika kerusakan yang sama pernah terjadi dan sudah ditangani sebelumnya, naikkan satu tingkat klasifikasi."},
+  {"id": "5.1", "bab": 5, "judul": "Langkah pemeriksaan bantalan aus", "kondisi": "bantalan_aus",
+   "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kelonggaran dan suara bantalan secara manual. 3. Periksa kondisi pelumas. 4. Ganti bantalan bila aus melebihi batas. 5. Uji gerak wesel tiga kali dan catat getaran setelah perbaikan."},
+  {"id": "5.2", "bab": 5, "judul": "Langkah pemeriksaan poros tidak sejajar", "kondisi": "poros_tidak_sejajar",
+   "isi": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kekencangan dudukan sensor terlebih dahulu. 3. Ukur kelurusan poros motor dan penggerak. 4. Setel ulang kelurusan sesuai toleransi. 5. Uji gerak wesel tiga kali dan catat durasi siklus."}
+]
