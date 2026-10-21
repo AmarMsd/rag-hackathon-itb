@@ -5,15 +5,14 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from . import database as db
+from . import lapis1
+
 DATA = Path(__file__).parent / "data"
 
 
 def _baca(nama):
     return json.loads((DATA / nama).read_text(encoding="utf-8"))
-
-
-def _tulis(nama, isi):
-    (DATA / nama).write_text(json.dumps(isi, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 STOPWORD = set("""dan atau yang di ke dari untuk dengan pada dalam adalah ini itu
@@ -58,18 +57,33 @@ def _cari(nama_file, kueri, jumlah, saring=None):
 
 
 def deteksi_anomali(wesel_id: str) -> dict:
-    """Mengambil hasil deteksi Lapis 1 (bukan LLM) untuk satu wesel.
+    """Mengambil hasil Lapis 1 (bukan LLM) untuk satu wesel dari siklus terbaru di database:
+    status, kandidat kondisi, skor kecocokan (0-1), indeks kesehatan (0-100), ciri sinyal,
+    dan ringkasan tren. Status "Waspada tren" berarti indeks masih normal tapi terus menurun.
 
     Args:
         wesel_id: ID wesel, contoh "W-12".
-
-    Returns:
-        Kondisi kandidat, skor kecocokan (0-1), indeks kesehatan (0-100), dan ciri sinyal.
     """
-    data = _baca("hasil_deteksi.json")
-    if wesel_id not in data:
-        return {"status": "error", "pesan": f"Tidak ada data deteksi untuk {wesel_id}."}
-    return {"status": "ok", "wesel_id": wesel_id, **data[wesel_id]}
+    hasil = lapis1.status_wesel(wesel_id)
+    if hasil is None:
+        return {"status": "error", "pesan": f"Belum ada data siklus untuk {wesel_id}."}
+    return {"status": "ok", "status_wesel": hasil.pop("status"), **hasil}
+
+
+def tren_wesel(wesel_id: str, hari: int = 14) -> dict:
+    """Melihat tren indeks kesehatan harian satu wesel: rata-rata per hari, laju perubahan
+    per hari, dan perkiraan kasar berapa hari lagi menyentuh batas Klasifikasi B (70) dan A (40)
+    bila lajunya tetap. Pakai saat status "Waspada tren" atau saat ditanya perkembangan wesel.
+
+    Args:
+        wesel_id: ID wesel.
+        hari: Jumlah hari ke belakang yang dilihat (bawaan 14).
+    """
+    t = lapis1.tren(wesel_id, hari)
+    if not t["hari_data"]:
+        return {"status": "error", "pesan": f"Belum ada data harian untuk {wesel_id}."}
+    t["catatan"] = "Perkiraan hari adalah perkiraan kasar dengan asumsi laju tetap, bukan prediksi sisa umur."
+    return {"status": "ok", "wesel_id": wesel_id, **t}
 
 
 def cari_manual(gejala: str, bab: int = 0) -> dict:
@@ -117,8 +131,9 @@ def cek_riwayat(wesel_id: str) -> dict:
     Returns:
         Daftar kejadian sebelumnya beserta keputusan dan catatan petugas.
     """
-    riwayat = [r for r in _baca("riwayat.json") if r["wesel_id"] == wesel_id]
-    return {"status": "ok", "jumlah": len(riwayat), "kejadian": riwayat}
+    kejadian = [{k: r[k] for k in ("tanggal", "kondisi", "kelas", "keputusan_petugas", "catatan")}
+                for r in db.riwayat(wesel_id)]
+    return {"status": "ok", "jumlah": len(kejadian), "kejadian": kejadian}
 
 
 def nilai_urgensi(indeks_kesehatan: int, kejadian_berulang: bool) -> dict:
@@ -160,20 +175,10 @@ def buat_work_order(wesel_id: str, kondisi: str, kelas: str, ringkasan: str) -> 
     langkah = next((s for s in _baca("manual.json") if s.get("kondisi") == kondisi), None)
     if langkah is None:
         return {"status": "error", "pesan": f"Bab 5 tidak memuat langkah untuk '{kondisi}'. Pertimbangkan eskalasi."}
-    daftar = _baca("work_orders.json")
-    wo = {
-        "id": f"WO-{len(daftar) + 1:03d}",
-        "wesel_id": wesel_id,
-        "kondisi": kondisi,
-        "kelas": kelas,
-        "ringkasan": ringkasan,
-        "langkah": langkah["isi"],
-        "rujukan": f"Manual {langkah['id']}",
-        "status": "MENUNGGU_PERSETUJUAN",
-        "dibuat": datetime.now().isoformat(timespec="seconds"),
-    }
-    daftar.append(wo)
-    _tulis("work_orders.json", daftar)
+    wo = db.tambah_work_order({
+        "wesel_id": wesel_id, "jenis": "WORK_ORDER", "kondisi": kondisi, "kelas": kelas,
+        "ringkasan": ringkasan, "langkah": langkah["isi"], "rujukan": f"Manual {langkah['id']}",
+        "status": "MENUNGGU_PERSETUJUAN"})
     return {"status": "ok", "work_order": wo}
 
 
@@ -187,15 +192,46 @@ def eskalasi(wesel_id: str, alasan: str) -> dict:
     Returns:
         Konfirmasi permintaan eskalasi.
     """
-    daftar = _baca("work_orders.json")
-    item = {
-        "id": f"ESK-{len(daftar) + 1:03d}",
-        "wesel_id": wesel_id,
-        "jenis": "ESKALASI",
-        "alasan": alasan,
-        "status": "MENUNGGU_TEKNISI_AHLI",
-        "dibuat": datetime.now().isoformat(timespec="seconds"),
-    }
-    daftar.append(item)
-    _tulis("work_orders.json", daftar)
+    item = db.tambah_work_order({"wesel_id": wesel_id, "jenis": "ESKALASI", "alasan": alasan,
+                                 "status": "MENUNGGU_TEKNISI_AHLI"})
     return {"status": "ok", "eskalasi": item}
+
+
+def prioritas_wesel() -> dict:
+    """Menyusun daftar prioritas SEMUA wesel, dari yang paling mendesak.
+    Pakai untuk pertanyaan tentang banyak wesel sekaligus, misalnya
+    "wesel mana yang harus segera diperbaiki" atau "bagaimana kondisi semua wesel".
+
+    Returns:
+        Daftar wesel terurut dengan status, kandidat kondisi, indeks kesehatan, tren,
+        kelas urgensi sementara (Bab 4), catatan riwayat, dan work order yang masih terbuka.
+    """
+    terbuka = db.work_orders(hanya_terbuka=True)
+    urutan = {"A": 0, "ESKALASI": 1, "B": 2, "PANTAU_TREN": 3, "C": 4, "AMAN": 5}
+    hasil = []
+    for s in lapis1.status_semua():
+        wid = s["wesel_id"]
+        kejadian = [r for r in db.riwayat(wid) if r["kondisi"] == s["kondisi_kandidat"]]
+        berulang = any(r["keputusan_petugas"] == "disetujui" for r in kejadian)
+        t = s["tren"]
+        if s["status"] == "Tidak dikenal":
+            kelas, alasan = "ESKALASI", "Pola tidak dikenal, perlu teknisi ahli."
+        elif s["status"] == "Waspada tren":
+            kelas = "PANTAU_TREN"
+            alasan = (f"Masih normal (indeks {s['indeks_kesehatan']}) tapi turun {t['laju_per_hari']} poin/hari "
+                      f"dari {t['indeks_tertinggi']}; perkiraan kasar menyentuh batas B dalam "
+                      f"{t['perkiraan_hari_ke_batas_B']} hari bila laju tetap.")
+        elif s["status"] == "Normal":
+            kelas, alasan = "AMAN", "Kondisi normal dan stabil."
+        else:
+            u = nilai_urgensi(s["indeks_kesehatan"], berulang)
+            kelas, alasan = u["kelas"], f"{u['alasan']} Tenggat: {u['tenggat']}."
+        hasil.append({
+            "wesel_id": wid, "status_wesel": s["status"], "kelas_sementara": kelas, "alasan": alasan,
+            "kondisi_kandidat": s["kondisi_kandidat"], "skor_kecocokan": s["skor_kecocokan"],
+            "indeks_kesehatan": s["indeks_kesehatan"], "laju_per_hari": t["laju_per_hari"],
+            "riwayat_kondisi_sama": [f"{r['tanggal']}: {r['keputusan_petugas']}, {r['catatan']}" for r in kejadian],
+            "work_order_terbuka": [w["id"] for w in terbuka if w["wesel_id"] == wid],
+        })
+    hasil.sort(key=lambda h: (urutan[h["kelas_sementara"]], h["indeks_kesehatan"]))
+    return {"status": "ok", "jumlah": len(hasil), "prioritas": hasil}

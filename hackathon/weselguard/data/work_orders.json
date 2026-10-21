@@ -9,5 +9,48 @@
     "rujukan": "Manual 5.1",
     "status": "MENUNGGU_PERSETUJUAN",
     "dibuat": "2026-10-21T20:32:22"
+  },
+  {
+    "id": "ESK-002",
+    "wesel_id": "W-03",
+    "jenis": "ESKALASI",
+    "alasan": "Deteksi poros tidak sejajar kemungkinan keliru karena riwayat wesel W-03 menunjukkan deteksi serupa sebelumnya disebabkan oleh baut dudukan sensor longgar. Perlu pemeriksaan langsung oleh teknisi ahli untuk memverifikasi kondisi sensor dan poros.",
+    "status": "MENUNGGU_TEKNISI_AHLI",
+    "dibuat": "2026-10-21T21:14:55"
+  },
+  {
+    "id": "WO-003",
+    "wesel_id": "W-03",
+    "kondisi": "poros_tidak_sejajar",
+    "kelas": "A",
+    "ringkasan": "Terdeteksi poros tidak sejajar (indeks kesehatan 35, Klasifikasi A). Namun, ada riwayat diagnosis serupa ditolak karena baut dudukan sensor longgar. Mohon periksa dudukan sensor dengan seksama terlebih dahulu sebelum menyimpulkan poros tidak sejajar. Rujuk Bab 3.2 dan 4.1.",
+    "langkah": "1. Amankan wesel sesuai prosedur keselamatan. 2. Periksa kekencangan dudukan sensor terlebih dahulu. 3. Ukur kelurusan poros motor dan penggerak. 4. Setel ulang kelurusan sesuai toleransi. 5. Uji gerak wesel tiga kali dan catat durasi siklus.",
+    "rujukan": "Manual 5.2",
+    "status": "MENUNGGU_PERSETUJUAN",
+    "dibuat": "2026-10-21T21:47:33"
+  },
+  {
+    "id": "ESK-004",
+    "wesel_id": "Wesel 03",
+    "jenis": "ESKALASI",
+    "alasan": "Tidak ada data deteksi anomali yang tersedia untuk Wesel 03, sehingga tidak dapat membuat diagnosis atau rekomendasi.",
+    "status": "MENUNGGU_TEKNISI_AHLI",
+    "dibuat": "2026-10-21T21:51:38"
+  },
+  {
+    "id": "ESK-005",
+    "wesel_id": "W-03",
+    "jenis": "ESKALASI",
+    "alasan": "Deteksi poros tidak sejajar pada W-03 mungkin keliru. Riwayat menunjukkan kejadian serupa sebelumnya disebabkan oleh baut dudukan sensor longgar, bukan poros. Petugas perlu memeriksa langsung kemungkinan masalah pada sensor.",
+    "status": "MENUNGGU_TEKNISI_AHLI",
+    "dibuat": "2026-10-21T21:55:54"
+  },
+  {
+    "id": "ESK-006",
+    "wesel_id": "W-21",
+    "jenis": "ESKALASI",
+    "alasan": "Pola anomali tidak dikenal (skor kecocokan rendah).",
+    "status": "MENUNGGU_TEKNISI_AHLI",
+    "dibuat": "2026-10-21T21:58:06"
   }
 ]

@@ -1,44 +1,34 @@
-"""Layar petugas sederhana: lihat, setujui, atau tolak work order.
+"""Layar petugas sederhana di terminal: lihat, setujui, atau tolak work order.
 
 Pemakaian:
   python petugas.py                       # lihat yang menunggu
   python petugas.py setujui WO-001
   python petugas.py tolak WO-001 "alasan"
 """
-import json
 import sys
 from datetime import date
-from pathlib import Path
 
-DATA = Path(__file__).parent / "weselguard" / "data"
-wo_file, riwayat_file = DATA / "work_orders.json", DATA / "riwayat.json"
-daftar = json.loads(wo_file.read_text(encoding="utf-8"))
+from weselguard import database as db
 
 if len(sys.argv) == 1:
-    menunggu = [w for w in daftar if w["status"].startswith("MENUNGGU")]
+    menunggu = db.work_orders(hanya_terbuka=True)
     if not menunggu:
         print("Tidak ada yang menunggu.")
     for w in menunggu:
         print(f"\n[{w['id']}] {w['wesel_id']} | {w['status']}")
-        print("  " + w.get("ringkasan", w.get("alasan", "")))
-        if "langkah" in w:
+        print("  " + (w["ringkasan"] or w["alasan"] or ""))
+        if w["langkah"]:
             print(f"  Kelas {w['kelas']} | {w['rujukan']}\n  {w['langkah']}")
     sys.exit()
 
 aksi, wo_id = sys.argv[1], sys.argv[2]
 catatan = sys.argv[3] if len(sys.argv) > 3 else ""
-wo = next((w for w in daftar if w["id"] == wo_id), None)
+wo = next((w for w in db.work_orders(hanya_terbuka=True) if w["id"] == wo_id), None)
 if wo is None or aksi not in ("setujui", "tolak"):
-    sys.exit("Work order tidak ditemukan atau aksi salah (setujui/tolak).")
-
-wo["status"] = "DISETUJUI" if aksi == "setujui" else "DITOLAK"
-wo_file.write_text(json.dumps(daftar, indent=2, ensure_ascii=False), encoding="utf-8")
-
-if "kondisi" in wo:  # keputusan petugas masuk riwayat, dibaca agen lewat cek_riwayat
-    riwayat = json.loads(riwayat_file.read_text(encoding="utf-8"))
-    riwayat.append({"wesel_id": wo["wesel_id"], "tanggal": date.today().isoformat(),
-                    "kondisi": wo["kondisi"], "kelas": wo["kelas"],
-                    "keputusan_petugas": "disetujui" if aksi == "setujui" else "ditolak",
-                    "catatan": catatan})
-    riwayat_file.write_text(json.dumps(riwayat, indent=2, ensure_ascii=False), encoding="utf-8")
-print(f"{wo_id} -> {wo['status']}")
+    sys.exit("Work order tidak ditemukan, sudah diputuskan, atau aksi salah (setujui/tolak).")
+status = "DISETUJUI" if aksi == "setujui" else "DITOLAK"
+db.ubah_status_work_order(wo_id, status, catatan)
+if wo["jenis"] == "WORK_ORDER":
+    db.tambah_riwayat(wo["wesel_id"], date.today().isoformat(), wo["kondisi"], wo["kelas"],
+                      "disetujui" if aksi == "setujui" else "ditolak", catatan)
+print(f"{wo_id} -> {status}")

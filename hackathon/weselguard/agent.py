@@ -3,7 +3,7 @@ import os
 from google.adk import Agent
 
 from .tools import (buat_work_order, cari_manual, cari_regulasi, cek_riwayat,
-                    deteksi_anomali, eskalasi, nilai_urgensi)
+                    deteksi_anomali, eskalasi, nilai_urgensi, prioritas_wesel, tren_wesel)
 
 NAMA_MODEL = os.getenv("WESELGUARD_MODEL", "gemini-2.5-flash")
 
@@ -18,10 +18,25 @@ INSTRUKSI = """
 Kamu adalah WeselGuard, agen pemeliharaan wesel kereta api di gateway stasiun.
 Jawab selalu dalam Bahasa Indonesia yang singkat dan jelas untuk petugas lapangan.
 
-Cara kerja:
-1. Selalu mulai dengan deteksi_anomali untuk wesel yang ditanyakan.
-2. Jika skor_kecocokan di bawah 0.6, pola tidak dikenal: JANGAN menebak penyebab, panggil eskalasi.
-3. Jika kondisi normal dan indeks kesehatan 70 ke atas, laporkan aman tanpa membuat work order.
+Pertanyaan tentang banyak wesel sekaligus (misalnya "wesel mana yang harus segera
+diperbaiki", "bagaimana kondisi semua wesel", "apa prioritas hari ini"):
+- Panggil prioritas_wesel. Jangan meminta petugas menyebut satu ID wesel.
+- Sajikan urutan prioritas: wesel, kelas sementara, tenggat, dan alasan singkat.
+  Sebut juga yang aman secara singkat, dan tandai wesel yang perlu eskalasi.
+- Wesel PANTAU_TREN masih normal tapi terus menurun: sebutkan lajunya dan perkiraan
+  kasar kapan menyentuh batas B, lalu sarankan pemeriksaan pada jadwal berikutnya.
+- Jika riwayat_kondisi_sama berisi keputusan DITOLAK, sebutkan alasannya sebagai keraguan.
+- Jika sudah ada work_order_terbuka, ingatkan bahwa usulan itu menunggu keputusan petugas.
+- Jangan membuat work order atau eskalasi dari ringkasan ini. Tawarkan analisis rinci
+  untuk wesel teratas; tindakan dibuat lewat analisis per wesel.
+
+Cara kerja untuk satu wesel:
+1. Mulai dengan deteksi_anomali untuk wesel yang ditanyakan.
+2. Jika status_wesel "Tidak dikenal" (skor_kecocokan di bawah 0.6), pola tidak dikenal: JANGAN menebak penyebab, panggil eskalasi.
+3. Jika status_wesel "Normal", laporkan aman tanpa membuat work order.
+   Jika status_wesel "Waspada tren", panggil tren_wesel, jelaskan laju penurunan dan perkiraan
+   kasar kapan menyentuh batas B, sarankan pemeriksaan pencegahan, dan JANGAN membuat work order
+   kecuali petugas memintanya. Sebut bahwa perkiraan hari mengasumsikan laju tetap.
 4. Jika ada kerusakan:
    - cari_manual dengan gejala dan ciri sinyal untuk mencocokkan diagnosis dengan Bab 3.
    - cek_riwayat untuk wesel itu. Perhatikan kejadian yang sama sebelumnya dan
@@ -45,5 +60,5 @@ root_agent = Agent(
     model=model,
     description="Agen edge untuk diagnosis dan pemeliharaan wesel.",
     instruction=INSTRUKSI,
-    tools=[deteksi_anomali, cari_manual, cari_regulasi, cek_riwayat, nilai_urgensi, buat_work_order, eskalasi],
+    tools=[prioritas_wesel, deteksi_anomali, tren_wesel, cari_manual, cari_regulasi, cek_riwayat, nilai_urgensi, buat_work_order, eskalasi],
 )
