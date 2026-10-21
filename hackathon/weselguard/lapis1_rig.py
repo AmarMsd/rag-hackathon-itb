@@ -19,22 +19,13 @@ from datetime import datetime
 import joblib
 import numpy as np
 
-try:
-    from . import database as db
-    from .lapis1 import BATAS_A, status_dari
-except ImportError:
-    # Dimuat sebagai modul biasa oleh penerima_lora.py (--weselguard), tanpa __init__.py paket
-    # (yang mungkin mengimpor agen). lapis1.py memakai impor relatif, jadi aturan statusnya
-    # disalin di sini. Jaga tetap sama dengan lapis1.py.
-    import database as db
-    BATAS_B, BATAS_A, SKOR_MINIMUM = 70, 40, 0.6
+from . import database as db
+from .lapis1 import BATAS_A, status_dari, status_wesel
 
-    def status_dari(indeks: float, skor: float) -> str:
-        if indeks >= BATAS_B:
-            return "Normal"
-        if skor < SKOR_MINIMUM:
-            return "Tidak dikenal"
-        return "Bahaya" if indeks < BATAS_A else "Waspada"
+try:
+    from . import notifikasi  # ada di backend versi baru
+except ImportError:
+    notifikasi = None
 
 SUMBER = "rig"
 Z_DUR_MELAMBAT = 2.0            # dur lebih dari 2 sd di atas normal -> perpindahan melambat
@@ -137,6 +128,15 @@ def proses_pesan(msg: dict, ts: str | None = None) -> dict:
                skor_kecocokan, kondisi_kandidat, status, sumber, nseg, aktif)
                VALUES (:wesel_id, :ts, :rms, :kurtosis, :puncak_hz, :durasi_s, :indeks,
                :skor_kecocokan, :kondisi_kandidat, :status, :sumber, :nseg, :aktif)""", baris)
+    # Sama dengan lapis1.proses_siklus(): periksa status wesel untuk notifikasi.
+    # Gagal kirim notifikasi tidak boleh menghentikan penyimpanan siklus berikutnya.
+    if notifikasi:
+        try:
+            info = status_wesel(msg["pm"])
+            if info:
+                notifikasi.cek_status(info, baris["ts"])
+        except Exception as e:  # noqa: BLE001
+            print(f"    notifikasi gagal: {e}")
     return {**baris, **h}
 
 

@@ -120,6 +120,13 @@ def status_wesel(wesel_id: str) -> dict | None:
     if not terakhir:
         return None
     akhir = terakhir[0]
+    # Rig (point machine): satu perpindahan gagal adalah kejadian keselamatan, tidak boleh
+    # tertutup rata-rata 10 siklus. Degradasi dinilai dari 3 siklus terakhir.
+    if akhir.get("sumber") == "rig":
+        if akhir["status"] in ("Bahaya", "Tidak dikenal"):
+            terakhir = [akhir]
+        elif akhir["status"] != "Normal":
+            terakhir = terakhir[:3]
     indeks = round(mean(s["indeks"] for s in terakhir), 1)
     t = tren(wesel_id)
     # kondisi diambil dari siklus yang memang anomali, bukan dari satu siklus terakhir saja

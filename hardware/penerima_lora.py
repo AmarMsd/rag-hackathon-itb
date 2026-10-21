@@ -83,8 +83,9 @@ if args.weselguard:
     import sys
     if not (args.model and args.profil):
         raise SystemExit("--weselguard butuh --model dan --profil")
-    sys.path.insert(0, os.path.expanduser(args.weselguard))
-    import lapis1_rig as L1  # dimuat langsung, tanpa __init__.py paket (yang mengimpor agen)
+    paket = os.path.abspath(os.path.expanduser(args.weselguard)).rstrip("/")
+    sys.path.insert(0, os.path.dirname(paket))  # folder yang berisi paket weselguard
+    from weselguard import lapis1_rig as L1  # sebagai paket, supaya notifikasi ikut jalan
     L1.muat(args.model, args.profil)
 
 # --- Opsional: MQTT ---
