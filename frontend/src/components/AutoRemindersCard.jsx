@@ -3,12 +3,31 @@ import {
   IconVolume2,
   IconArrowUpRight,
   IconSparkles,
+  IconSend,
+  IconX,
 } from "../Icons.jsx";
+import Teks from "../Teks.jsx";
+import LogAgen from "../LogAgen.jsx";
 import { api } from "../api.js";
+
+function extractTargetWesel(text, list = [], top = null) {
+  if (text) {
+    for (const item of list) {
+      if (item.wesel_id && text.toLowerCase().includes(item.wesel_id.toLowerCase())) {
+        return item.wesel_id;
+      }
+    }
+    // Check for patterns like W-12, W12, WESEL-03B, etc.
+    const match = text.match(/\b([Ww](?:esel)?[-_]?[0-9]+[A-Za-z]?)\b/);
+    if (match) return match[1].toUpperCase();
+  }
+  return top ? top.wesel_id : null;
+}
 
 export default function AutoRemindersCard({
   weselList = [],
   onOpenChat,
+  onOpenChatWithSession,
   onAnalyze,
   onSelectWesel,
   isAgentActive = true,
@@ -16,6 +35,11 @@ export default function AutoRemindersCard({
 }) {
   const [isAskingPriority, setIsAskingPriority] = useState(false);
   const [aiPriorityAnswer, setAiPriorityAnswer] = useState(null);
+  const [aiSessionId, setAiSessionId] = useState(null);
+  const [aiLangkah, setAiLangkah] = useState([]);
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [inlineReplyText, setInlineReplyText] = useState("");
+  const [isSendingInline, setIsSendingInline] = useState(false);
 
   // Fitur 4: Menyusun prioritas hari ini dari status + indeks kesehatan
   const sortedPriority = [...weselList].sort((a, b) => {
@@ -27,6 +51,7 @@ export default function AutoRemindersCard({
   });
 
   const topPriority = sortedPriority[0] || null;
+  const targetWesel = extractTargetWesel(aiPriorityAnswer, weselList, topPriority);
 
   // Fitur 4: POST /api/chat dengan pesan "Wesel mana yang harus segera diperbaiki?"
   const askAiPriority = async () => {
@@ -35,11 +60,101 @@ export default function AutoRemindersCard({
     try {
       const res = await api.chat("Wesel mana yang harus segera diperbaiki?");
       setAiPriorityAnswer(res.jawaban);
+      setAiSessionId(res.session_id);
+      setAiLangkah(res.langkah || []);
+      setConversationHistory([
+        { dari: "petugas", teks: "Wesel mana yang harus segera diperbaiki?" },
+        { dari: "agen", teks: res.jawaban, langkah: res.langkah },
+      ]);
     } catch (err) {
       setAiPriorityAnswer("Gagal memuat rekomendasi prioritas: " + (err.message || "Koneksi gateway bermasalah"));
     } finally {
       setIsAskingPriority(false);
     }
+  };
+
+  // Follow-up: Lanjut analisis lebih rinci
+  const handleDetailedFollowUp = () => {
+    const prompt = targetWesel
+      ? `Ya, tolong analisis wesel ${targetWesel} secara lebih rinci.`
+      : "Ya, tolong berikan analisis lebih rinci mengenai prioritas wesel ini.";
+
+    if (targetWesel && onSelectWesel) {
+      onSelectWesel(targetWesel);
+    }
+
+    if (onOpenChatWithSession) {
+      onOpenChatWithSession({
+        prompt,
+        sessionId: aiSessionId,
+        history: conversationHistory,
+        autoSend: true,
+      });
+    } else if (onOpenChat) {
+      onOpenChat();
+    }
+  };
+
+  // Follow-up: SOP & Regulasi
+  const handleSopFollowUp = () => {
+    const prompt = `Bagaimana SOP dan langkah perbaikan sesuai regulasi PD 10A untuk ${targetWesel || "wesel ini"}?`;
+
+    if (onOpenChatWithSession) {
+      onOpenChatWithSession({
+        prompt,
+        sessionId: aiSessionId,
+        history: conversationHistory,
+        autoSend: true,
+      });
+    } else if (onOpenChat) {
+      onOpenChat();
+    }
+  };
+
+  // Buka chat lengkap dengan riwayat saat ini
+  const handleOpenFullChat = () => {
+    if (onOpenChatWithSession) {
+      onOpenChatWithSession({
+        sessionId: aiSessionId,
+        history: conversationHistory,
+        autoSend: false,
+      });
+    } else if (onOpenChat) {
+      onOpenChat();
+    }
+  };
+
+  // Kirim balasan inline langsung dari kartu
+  const handleSendInlineReply = async (e) => {
+    if (e) e.preventDefault();
+    const text = inlineReplyText.trim();
+    if (!text || isSendingInline || !isAgentActive) return;
+
+    setIsSendingInline(true);
+    setInlineReplyText("");
+    try {
+      const res = await api.chat(text, aiSessionId);
+      setAiPriorityAnswer(res.jawaban);
+      if (res.session_id) setAiSessionId(res.session_id);
+      if (res.langkah) setAiLangkah(res.langkah);
+
+      setConversationHistory((prev) => [
+        ...prev,
+        { dari: "petugas", teks: text },
+        { dari: "agen", teks: res.jawaban, langkah: res.langkah },
+      ]);
+    } catch (err) {
+      setAiPriorityAnswer((prev) => `${prev}\n\n⚠️ Gagal mengirim balasan: ${err.message}`);
+    } finally {
+      setIsSendingInline(false);
+    }
+  };
+
+  const handleCloseAnswer = () => {
+    setAiPriorityAnswer(null);
+    setAiSessionId(null);
+    setAiLangkah([]);
+    setConversationHistory([]);
   };
 
   return (
@@ -55,11 +170,19 @@ export default function AutoRemindersCard({
           type="button"
           className="reminders-external-btn"
           onClick={() => {
-            onSelectWesel && topPriority && onSelectWesel(topPriority.wesel_id);
-            onOpenChat && onOpenChat();
+            if (aiPriorityAnswer && onOpenChatWithSession) {
+              onOpenChatWithSession({
+                sessionId: aiSessionId,
+                history: conversationHistory,
+                autoSend: false,
+              });
+            } else {
+              if (onSelectWesel && topPriority) onSelectWesel(topPriority.wesel_id);
+              if (onOpenChat) onOpenChat();
+            }
           }}
-          title="Buka obrolan prioritas dengan agen"
-          aria-label="Buka obrolan prioritas dengan agen"
+          title={aiPriorityAnswer ? "Lanjutkan percakapan ini di Chat" : "Buka obrolan dengan agen"}
+          aria-label="Buka obrolan dengan agen"
         >
           <IconArrowUpRight className="external-link-icon" />
         </button>
@@ -100,11 +223,117 @@ export default function AutoRemindersCard({
           </div>
         )}
 
-        {/* AI Prescriptive Inline Answer (if triggered) */}
+        {/* AI Prescriptive Inline Answer & Interactive Chat Continuation */}
         {aiPriorityAnswer && (
           <div className="ai-priority-response-box">
-            <div className="response-title">Rekomendasi Agen AI:</div>
-            <div className="response-text">{aiPriorityAnswer}</div>
+            <div className="response-header-row">
+              <div className="response-title-left">
+                <IconSparkles className="sparkle-tiny" />
+                <span className="response-title">Rekomendasi Agen AI</span>
+                {aiSessionId && (
+                  <span className="response-session-pill">Sesi Terhubung</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="response-clear-btn"
+                onClick={handleCloseAnswer}
+                title="Tutup jawaban ini"
+              >
+                <IconX className="close-mini-icon" />
+                <span>Tutup</span>
+              </button>
+            </div>
+
+            <div className="response-text">
+              <Teks isi={aiPriorityAnswer} />
+            </div>
+
+            {/* Expandable Reasoning Steps */}
+            {aiLangkah && aiLangkah.length > 0 && (
+              <div className="response-reasoning-wrap">
+                <LogAgen langkah={aiLangkah} />
+              </div>
+            )}
+
+            {/* Follow-up Quick Action Buttons to continue chat / analysis */}
+            <div className="priority-followup-toolbar">
+              <span className="toolbar-label">Lanjutkan:</span>
+
+              <button
+                type="button"
+                className="priority-action-chip primary"
+                onClick={handleDetailedFollowUp}
+                disabled={!isAgentActive}
+                title={`Buka chat dan minta analisis mendalam untuk ${targetWesel || "wesel"}`}
+              >
+                <span>⚡ Ya, Analisis {targetWesel || "Wesel"} Lebih Rinci</span>
+              </button>
+
+              <button
+                type="button"
+                className="priority-action-chip secondary"
+                onClick={handleSopFollowUp}
+                disabled={!isAgentActive}
+                title="Tanyakan SOP langkah perbaikan & regulasi PD 10A"
+              >
+                <span>📋 SOP Perbaikan</span>
+              </button>
+
+              <button
+                type="button"
+                className="priority-action-chip chat-link"
+                onClick={handleOpenFullChat}
+                title="Buka percakapan ini secara lengkap di panel chat"
+              >
+                <span>💬 Lanjutkan di Chat ({conversationHistory.length} pesan)</span>
+              </button>
+
+              {targetWesel && (
+                <button
+                  type="button"
+                  className="priority-action-chip telemetry"
+                  onClick={() => {
+                    if (onSelectWesel) onSelectWesel(targetWesel);
+                    if (onAnalyze) onAnalyze(targetWesel);
+                  }}
+                  title={`Buka modal telemetri dan analisis sensor untuk ${targetWesel}`}
+                >
+                  <span>🔬 Buka Telemetri {targetWesel} ↗</span>
+                </button>
+              )}
+            </div>
+
+            {/* Inline Quick Reply Input Form */}
+            <form className="priority-inline-chat-form" onSubmit={handleSendInlineReply}>
+              <input
+                type="text"
+                className="priority-inline-chat-input"
+                placeholder={
+                  isAgentActive
+                    ? `Ketik balasan (misal: "Ya, analisis ${targetWesel || 'wesel ini'}")`
+                    : "Agen sedang dinonaktifkan"
+                }
+                value={inlineReplyText}
+                onChange={(e) => setInlineReplyText(e.target.value)}
+                disabled={!isAgentActive || isSendingInline}
+              />
+              <button
+                type="submit"
+                className="priority-inline-chat-send-btn"
+                disabled={!inlineReplyText.trim() || isSendingInline || !isAgentActive}
+                title="Kirim balasan langsung ke agen"
+              >
+                {isSendingInline ? (
+                  <span>Mengirim…</span>
+                ) : (
+                  <>
+                    <span>Kirim</span>
+                    <IconSend className="send-icon-mini" />
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         )}
       </div>

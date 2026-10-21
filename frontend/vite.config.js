@@ -9,6 +9,11 @@ export default defineConfig({
     postcss: {},
   },
   server: {
-    proxy: { "/api": process.env.API_TARGET || "http://artemis.local:8000" },
+    proxy: {
+      "/api": {
+        target: process.env.API_TARGET || "http://artemis.local:8080",
+        changeOrigin: true,
+      },
+    },
   },
 });

@@ -2,13 +2,16 @@ import React, { useState } from "react";
 import { IconChevronDown } from "./Icons.jsx";
 
 const TOOL_NAMES = {
-  deteksi_anomali: "Membaca data sensor getaran",
-  cari_manual: "Mencari di manual perawatan wesel",
-  cari_regulasi: "Memeriksa ketentuan regulasi PD 10A",
-  cek_riwayat: "Membaca riwayat perawatan wesel",
-  nilai_urgensi: "Mengevaluasi tingkat urgensi",
-  buat_work_order: "Menyusun draf Work Order",
-  eskalasi: "Mengajukan eskalasi ke teknisi ahli",
+  prioritas_wesel: "Menentukan Prioritas Wesel",
+  deteksi_anomali: "Membaca Sinyal & Sensor Getaran",
+  tren_wesel: "Menganalisis Tren Degradasi 14 Hari",
+  cari_manual: "Mencari Prosedur Manual Sintelis",
+  cari_dokumen: "Memeriksa Dokumen Pengetahuan",
+  cari_regulasi: "Memeriksa Ketentuan Regulasi PD 10A",
+  cek_riwayat: "Membaca Riwayat Perawatan Wesel",
+  nilai_urgensi: "Mengevaluasi Tingkat Urgensi Keselamatan",
+  buat_work_order: "Menyusun Draf Usulan Work Order",
+  eskalasi: "Mengajukan Eskalasi ke Teknisi Ahli",
 };
 
 function formatParamSummary(params) {

@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { IconLogo } from "../Icons.jsx";
 import { api } from "../api.js";
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, initialMessage = "" }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialMessage);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +44,6 @@ export default function Login({ onLoginSuccess }) {
             <IconLogo className="login-logo-icon" />
           </div>
           <h1 className="login-brand-title">WeselGuard</h1>
-          <span className="login-brand-badge">Gateway Stasiun</span>
           <p className="login-brand-subtitle">
             Sistem Monitoring Kondisi Wesel & Rekomendasi Preskriptif Sintelis
           </p>
@@ -68,7 +67,7 @@ export default function Login({ onLoginSuccess }) {
               id="username"
               type="text"
               className="login-input"
-              placeholder="Contoh: petugas atau admin"
+              placeholder="Masukkan username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={isSubmitting}
@@ -120,7 +119,7 @@ export default function Login({ onLoginSuccess }) {
         </form>
 
         {/* Quick Test Accounts for Evaluators/Testing */}
-        <div className="login-quick-accounts">
+        {/* <div className="login-quick-accounts">
           <span className="quick-accounts-title">Akun Uji Coba Cepat:</span>
           <div className="quick-accounts-chips">
             <button
@@ -142,18 +141,26 @@ export default function Login({ onLoginSuccess }) {
             <button
               type="button"
               className="account-chip"
+              onClick={() => fillQuickAccount("pengelola", "pengelola123")}
+              title="Isi akun pengelola dokumen"
+            >
+              <strong>Pengelola:</strong> pengelola / pengelola123
+            </button>
+            <button
+              type="button"
+              className="account-chip"
               onClick={() => fillQuickAccount("pengamat", "pengamat123")}
               title="Isi akun pengamat (Read-Only)"
             >
               <strong>Pengamat:</strong> pengamat / pengamat123
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Footer info */}
-        <div className="login-card-footer">
+        {/* <div className="login-card-footer">
           <span>Sesi terenkripsi berlaku 12 jam (1 sif kerja)</span>
-        </div>
+        </div> */}
       </div>
     </div>
   );

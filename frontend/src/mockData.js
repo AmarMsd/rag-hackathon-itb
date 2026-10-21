@@ -7,6 +7,7 @@ export const MOCK_WESEL = [
     skor_kecocokan: 0.89,
     tipe: "Elektrik Siemens R-54",
     lokasi: "Emplasemen Barat (Km 14+200)",
+    menit_sejak_siklus_terakhir: 14,
     ciri: {
       rms: 3.42,
       kurtosis: 4.12,
@@ -23,6 +24,7 @@ export const MOCK_WESEL = [
     skor_kecocokan: 0.96,
     tipe: "Elektrik Alstom R-54",
     lokasi: "Jalur Utama 1 (Km 13+850)",
+    menit_sejak_siklus_terakhir: 38,
     ciri: {
       rms: 1.15,
       kurtosis: 2.85,
@@ -39,6 +41,7 @@ export const MOCK_WESEL = [
     skor_kecocokan: 0.92,
     tipe: "Elektrik Siemens R-54",
     lokasi: "Wesel Percabangan Dipo (Km 15+100)",
+    menit_sejak_siklus_terakhir: 145, // Sensor senyap (> 120 menit)
     ciri: {
       rms: 6.84,
       kurtosis: 7.21,
@@ -55,6 +58,7 @@ export const MOCK_WESEL = [
     skor_kecocokan: 0.94,
     tipe: "Elektrik Nippon Signal R-54",
     lokasi: "Jalur Sepur Belok (Km 14+600)",
+    menit_sejak_siklus_terakhir: 55,
     ciri: {
       rms: 1.48,
       kurtosis: 3.05,
@@ -186,3 +190,299 @@ export const MOCK_RIWAYAT = {
     { tanggal: "18 Okt 2026", kondisi: "normal", kelas: "C", keputusan_petugas: "Disetujui", catatan: "Inspeksi rutin kondisi prima" },
   ],
 };
+
+
+export const MOCK_KONEKSI = {
+  status: "online",
+  agen_tersedia: true,
+  host: "generativelanguage.googleapis.com",
+  latensi_ms: 38,
+  pesan: "Agen bisa menghubungi model Google Gemini API.",
+  diperiksa: "2026-10-22T03:00:00",
+};
+
+export const MOCK_NOTIFIKASI = [
+  {
+    id: 101,
+    ts: "2026-10-22T02:40:00",
+    jenis: "status",
+    tingkat: "kritis",
+    wesel_id: "WESEL-03B",
+    judul: "WESEL-03B masuk status Bahaya",
+    pesan: "Sebelumnya Waspada. Indeks kesehatan turun ke 36, kandidat kondisi poros tidak sejajar.",
+    ref_id: "Bahaya",
+    dibaca: false,
+  },
+  {
+    id: 102,
+    ts: "2026-10-22T02:15:00",
+    jenis: "work_order",
+    tingkat: "peringatan",
+    wesel_id: "WESEL-02A",
+    judul: "Usulan Work Order Baru WO-2026-089",
+    pesan: "Agen mendeteksi keausan bantalan gesek lidah wesel WESEL-02A dengan laju -1.8 poin/hari.",
+    ref_id: "WO-2026-089",
+    dibaca: false,
+  },
+  {
+    id: 103,
+    ts: "2026-10-22T01:50:00",
+    jenis: "keputusan",
+    tingkat: "info",
+    wesel_id: "WESEL-01A",
+    judul: "WO-2026-085 disetujui oleh Maya Reyes",
+    pesan: "Pemeriksaan visual pelat luncur selesai dalam toleransi baik.",
+    ref_id: "WO-2026-085",
+    dibaca: true,
+  },
+  {
+    id: 104,
+    ts: "2026-10-22T00:30:00",
+    jenis: "koneksi",
+    tingkat: "info",
+    wesel_id: null,
+    judul: "Gateway kembali online",
+    pesan: "Koneksi ke server model cloud pulih dengan latensi 38ms.",
+    ref_id: null,
+    dibaca: true,
+  },
+];
+
+export const MOCK_LAPORAN_HARIAN = {
+  tanggal: "2026-10-22",
+  status_dari: "kondisi terkini",
+  ringkasan: {
+    wesel_dipantau: 4,
+    total_siklus: 88,
+    siklus_anomali: 18,
+    jumlah_per_status: { Normal: 2, Waspada: 1, Bahaya: 1 },
+    work_order_baru: 1,
+    eskalasi_baru: 1,
+    disetujui: 1,
+    ditolak: 0,
+    notifikasi: { kritis: 1, peringatan: 1, info: 2 },
+  },
+  per_wesel: [
+    { wesel_id: "WESEL-01A", status: "Normal", indeks_rata: 94.2, indeks_min: 90, jumlah_siklus: 24, siklus_anomali: 0, laju_per_hari: -0.1 },
+    { wesel_id: "WESEL-02A", status: "Waspada", indeks_rata: 77.8, indeks_min: 69, jumlah_siklus: 22, siklus_anomali: 4, laju_per_hari: -1.8 },
+    { wesel_id: "WESEL-03B", status: "Bahaya", indeks_rata: 36.4, indeks_min: 29, jumlah_siklus: 24, siklus_anomali: 14, laju_per_hari: -3.4 },
+    { wesel_id: "WESEL-04A", status: "Normal", indeks_rata: 88.0, indeks_min: 85, jumlah_siklus: 18, siklus_anomali: 0, laju_per_hari: 0.2 },
+  ],
+  work_order_baru: [
+    { id: "WO-2026-089", wesel_id: "WESEL-02A", jenis: "WORK_ORDER", kelas: "B", status: "MENUNGGU_PERSETUJUAN", ringkasan: "Penggantian bantalan gesek lidah wesel WESEL-02A.", alasan: "Laju -1.8 poin/hari.", dibuat: "2026-10-22T02:15:00" },
+    { id: "WO-2026-088", wesel_id: "WESEL-03B", jenis: "ESKALASI", kelas: "A", status: "MENUNGGU_PERSETUJUAN", ringkasan: "Eskalasi darurat: Poros penggerak tidak sejajar.", alasan: "Beban getaran kritis 6.84 m/s².", dibuat: "2026-10-22T01:15:00" },
+  ],
+  keputusan_petugas: [
+    { id: "WO-2026-085", wesel_id: "WESEL-01A", status: "DISETUJUI", catatan_petugas: "Pemeriksaan selesai.", diputuskan_oleh: "admin (Maya Reyes)", diputuskan_pada: "2026-10-22T01:50:00" },
+  ],
+};
+
+export const MOCK_PERCAKAPAN = [
+  {
+    id: "sesi-prioritas-01",
+    username: "admin",
+    jenis: "chat",
+    judul: "Prioritas Penanganan Wesel Hari Ini",
+    cuplikan: "1. Prioritas Utama: WESEL-03B (Bahaya), 2. WESEL-02A (Waspada)...",
+    jumlah_pesan: 4,
+    dibuat: "2026-10-22T02:00:00",
+    diperbarui: "2026-10-22T02:15:00",
+    pesan: [
+      { dari: "petugas", teks: "Wesel mana yang harus segera diperbaiki?" },
+      {
+        dari: "agen",
+        teks: "**Prioritas Penanganan Wesel Hari Ini:**\n\n1. **WESEL-03B (Bahaya - Skor 36)**: Poros tidak sejajar, durasi pembalikan melambat ke 7.4s.\n2. **WESEL-02A (Waspada - Skor 78)**: Keausan bantalan gesek, laju degradasi -1.8/hari.",
+        langkah: [
+          { tool: "deteksi_anomali", jenis: "panggil", data: { lingkup: "semua_wesel" } },
+          { tool: "deteksi_anomali", jenis: "hasil", data: { bahaya: ["WESEL-03B"], waspada: ["WESEL-02A"] } },
+        ],
+      },
+      { dari: "petugas", teks: "Bagaimana rekomendasi darurat untuk WESEL-03B?" },
+      {
+        dari: "agen",
+        teks: "Eskalasikan segera ke Teknisi Ahli Sintelis Daop dan jadwalkan inspeksi mekanis sebelum jam sibuk pagi.",
+        langkah: [
+          { tool: "nilai_urgensi", jenis: "panggil", data: { wesel_id: "WESEL-03B" } },
+          { tool: "nilai_urgensi", jenis: "hasil", data: { kelas: "A", tindakan: "Eskalasi darurat" } },
+        ],
+      },
+    ],
+  },
+  {
+    id: "sesi-analisis-w02a",
+    username: "admin",
+    jenis: "analisis",
+    judul: "Analisis Mendalam WESEL-02A",
+    cuplikan: "Indikasi bantalan aus dengan keyakinan 89%. Batas waktu pembalikan normal...",
+    jumlah_pesan: 2,
+    dibuat: "2026-10-21T14:30:00",
+    diperbarui: "2026-10-21T14:35:00",
+    pesan: [
+      { dari: "petugas", teks: "Periksa wesel WESEL-02A" },
+      {
+        dari: "agen",
+        teks: "**Analisis Agen untuk WESEL-02A:**\n\nTerdeteksi indikasi **Bantalan Aus** dengan laju degradasi -1.8 poin/hari. Diperkirakan 5 hari lagi mencapai batas Kelas B.",
+        langkah: [
+          { tool: "deteksi_anomali", jenis: "panggil", data: { id: "WESEL-02A" } },
+          { tool: "deteksi_anomali", jenis: "hasil", data: { rms: 3.42, kondisi: "bantalan_aus" } },
+        ],
+      },
+    ],
+  },
+];
+
+export const MOCK_DOKUMEN = [
+  {
+    id: 1,
+    judul: "Peraturan Dinas 10A (PD 10A) Jilid I: Pengoperasian Wesel",
+    kategori: "regulasi",
+    nama_file: "PD_10A_Jilid_1_Wesel.pdf",
+    ukuran: 4250000,
+    jumlah_halaman: 84,
+    jumlah_potongan: 142,
+    status: "aktif",
+    pesan: null,
+    diunggah_oleh: "pengelola",
+    diunggah_pada: "2026-09-10T09:00:00",
+    diubah_oleh: "pengelola",
+    diubah_pada: "2026-09-10T10:15:00",
+    potongan: [
+      { halaman: 14, urutan: 1, isi: "Pasal 18: Batas waktu pembalikan lidah wesel elektrik tipe Siemens dan Alstom standar tidak boleh melampaui 6.0 detik pada kondisi beban penuh." },
+      { halaman: 22, urutan: 2, isi: "Pasal 24: Celah bebas lidah rel (flangeway clearance) pada posisi terbuka minimal 55 mm dan maksimal 65 mm. Toleransi celah lidah merapat adalah 0 mm." },
+      { halaman: 35, urutan: 3, isi: "Pasal 42: Apabila getaran akselerometer RMS pada bantalan luncur melampaui 2.5 m/s², petugas pemeliharaan wajib melakukan inspeksi pelat dan pelumasan." },
+    ],
+  },
+  {
+    id: 2,
+    judul: "Manual Pemeliharaan Motor Wesel Elektrik Siemens R-54",
+    kategori: "manual",
+    nama_file: "Manual_Siemens_R54_Maintenance.pdf",
+    ukuran: 6800000,
+    jumlah_halaman: 112,
+    jumlah_potongan: 198,
+    status: "aktif",
+    pesan: null,
+    diunggah_oleh: "pengelola",
+    diunggah_pada: "2026-09-15T11:20:00",
+    diubah_oleh: "pengelola",
+    diubah_pada: "2026-09-15T11:45:00",
+    potongan: [
+      { halaman: 12, urutan: 1, isi: "Bab 3: Pemeriksaan keausan poros transmisi dan batang penggerak lidah (throw rod). Nilai defleksi maksimal adalah 1.5 mm." },
+      { halaman: 28, urutan: 2, isi: "Bab 5: Prosedur darurat pembalikan manual menggunakan engkol (crank handle) saat motor mengalami trip arus lebih." },
+    ],
+  },
+  {
+    id: 3,
+    judul: "SOP Penanganan Anomali Wesel & Eskalasi Teknis Sintelis",
+    kategori: "sop",
+    nama_file: "SOP_Sintelis_Anomali_Wesel.pdf",
+    ukuran: 1200000,
+    jumlah_halaman: 26,
+    jumlah_potongan: 45,
+    status: "aktif",
+    pesan: null,
+    diunggah_oleh: "pengelola",
+    diunggah_pada: "2026-10-01T08:30:00",
+    diubah_oleh: "pengelola",
+    diubah_pada: "2026-10-01T08:50:00",
+    potongan: [
+      { halaman: 4, urutan: 1, isi: "Butir 4.1: Wesel berstatus Bahaya (Kelas A) wajib dilaporkan ke PPKA dalam waktu maksimal 5 menit sejak alert terpicu." },
+    ],
+  },
+  {
+    id: 4,
+    judul: "Draf Dokumen Kalibrasi Sensor Getaran IoT WeselGuard 2026",
+    kategori: "manual",
+    nama_file: "Draf_Kalibrasi_Sensor_IoT.pdf",
+    ukuran: 950000,
+    jumlah_halaman: 18,
+    jumlah_potongan: 28,
+    status: "draf",
+    pesan: "Menunggu verifikasi hasil uji coba oleh pengelola sebelum diaktifkan.",
+    diunggah_oleh: "pengelola",
+    diunggah_pada: "2026-10-20T16:00:00",
+    diubah_oleh: null,
+    diubah_pada: null,
+    potongan: [
+      { halaman: 2, urutan: 1, isi: "Kalibrasi sensor ADXL345: Zero-g offset testing pada bantalan wesel saat kondisi rel tanpa beban lintas." },
+    ],
+  },
+  {
+    id: 5,
+    judul: "Scan Dokumen Arsip Wesel Lama 2018 (Scan Kertas Rusak)",
+    kategori: "riwayat_kerusakan",
+    nama_file: "Arsip_Wesel_Scan_Rusak.pdf",
+    ukuran: 3100000,
+    jumlah_halaman: 12,
+    jumlah_potongan: 0,
+    status: "gagal",
+    pesan: "PDF berupa hasil scan gambar tanpa lapisan teks (OCR). Teks tidak dapat diekstrak oleh sistem.",
+    diunggah_oleh: "pengelola",
+    diunggah_pada: "2026-10-18T10:00:00",
+    diubah_oleh: null,
+    diubah_pada: null,
+    potongan: [],
+  },
+];
+
+export const MOCK_PENGGUNA = [
+  {
+    username: "admin",
+    nama: "Maya Reyes",
+    peran: "admin",
+    aktif: true,
+    dibuat: "2026-08-01T08:00:00",
+    masuk_terakhir: "2026-10-22T03:15:00",
+  },
+  {
+    username: "petugas",
+    nama: "Budi Santoso",
+    peran: "petugas",
+    aktif: true,
+    dibuat: "2026-08-15T09:30:00",
+    masuk_terakhir: "2026-10-21T18:40:00",
+  },
+  {
+    username: "pengelola",
+    nama: "Eko Prasetyo",
+    peran: "pengelola",
+    aktif: true,
+    dibuat: "2026-09-01T10:00:00",
+    masuk_terakhir: "2026-10-22T01:20:00",
+  },
+  {
+    username: "pengamat",
+    nama: "Siti Pengamat",
+    peran: "pengamat",
+    aktif: true,
+    dibuat: "2026-09-10T14:00:00",
+    masuk_terakhir: "2026-10-20T11:15:00",
+  },
+];
+
+export const MOCK_AUDIT = [
+  {
+    id: 1,
+    ts: "2026-10-22T03:15:00",
+    siapa: "admin",
+    ke_siapa: "petugas",
+    aksi: "ubah",
+    keterangan: "nama: Budi -> Budi Santoso",
+  },
+  {
+    id: 2,
+    ts: "2026-10-21T15:20:00",
+    siapa: "admin",
+    ke_siapa: "pengelola",
+    aksi: "aktifkan",
+    keterangan: "akun diaktifkan kembali oleh admin",
+  },
+  {
+    id: 3,
+    ts: "2026-10-20T10:45:00",
+    siapa: "admin",
+    ke_siapa: "pengamat",
+    aksi: "buat",
+    keterangan: "peran pengamat",
+  },
+];

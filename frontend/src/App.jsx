@@ -2,34 +2,38 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "./api.js";
 import Sidebar from "./components/Sidebar.jsx";
 import Header from "./components/Header.jsx";
-// import TrainingLoadCard from "./components/TrainingLoadCard.jsx";
-import WeeklyConsistencyCard from "./components/WeeklyConsistencyCard.jsx";
-import SpotlightCard from "./components/SpotlightCard.jsx";
-import HistoryTableCard from "./components/HistoryTableCard.jsx";
-import AutoRemindersCard from "./components/AutoRemindersCard.jsx";
-import AgentChatDrawer from "./components/AgentChatDrawer.jsx";
-import AgentAnalysisModal from "./components/AgentAnalysisModal.jsx";
 import Login from "./components/Login.jsx";
-import { IconSliders, IconArrowUpRight, IconLogo } from "./Icons.jsx";
+import { IconLogo } from "./Icons.jsx";
+
+// Page Views (Navigasi Terarah & Tanpa Card Absolute)
+import BerandaPage from "./pages/BerandaPage.jsx";
+import DetailWeselPage from "./pages/DetailWeselPage.jsx";
+import TanyaAgenPage from "./pages/TanyaAgenPage.jsx";
+import WorkOrdersPage from "./pages/WorkOrdersPage.jsx";
+import LaporanHarianPage from "./pages/LaporanHarianPage.jsx";
+import DokumenPage from "./pages/DokumenPage.jsx";
+import PenggunaPage from "./pages/PenggunaPage.jsx";
+import ProfilPage from "./pages/ProfilPage.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [loginMessage, setLoginMessage] = useState("");
 
   const [wesel, setWesel] = useState([]);
   const [pilihan, setPilihan] = useState(null);
   const [workOrders, setWorkOrders] = useState([]);
   const [agen, setAgen] = useState({ aktif: true });
-  const [riwayat, setRiwayat] = useState([]);
   const [putus, setPutus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeNav, setActiveNav] = useState("dashboard");
 
-  // Interactive Modals
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  // Navigasi Halaman Utama (Default: 'beranda')
+  const [activeNav, setActiveNav] = useState("beranda");
 
-  // 1. Initial auth verification on page load
+  // State parameter untuk navigasi antar halaman (misal: buka chat dengan prompt/sesi tertentu)
+  const [chatInitData, setChatInitData] = useState(null);
+
+  // 1. Initial auth verification on page load (GET /api/saya)
   useEffect(() => {
     async function verifikasiSesi() {
       try {
@@ -37,6 +41,9 @@ export default function App() {
         setUser(u);
       } catch (err) {
         setUser(null);
+        if (err.status === 401) {
+          setLoginMessage("Sesi habis atau belum masuk. Silakan masuk lagi.");
+        }
       } finally {
         setCheckingAuth(false);
       }
@@ -46,18 +53,22 @@ export default function App() {
 
   const muat = useCallback(async () => {
     try {
-      const [w, wo, a] = await Promise.all([api.wesel(), api.workOrders(), api.agen()]);
+      const [w, wo, a] = await Promise.all([
+        api.wesel(),
+        api.workOrders(),
+        api.agen(),
+      ]);
       setWesel(w || []);
       setWorkOrders(wo || []);
       setAgen(a || { aktif: true });
       setPutus("");
 
-      // Default selection to the first non-normal switch or first in list
+      // Default switch selection
       setPilihan((p) => p ?? w.find((x) => x.status !== "Normal")?.wesel_id ?? w[0]?.wesel_id);
     } catch (err) {
       if (err.status === 401) {
-        // Session expired
         setUser(null);
+        setLoginMessage("Sesi berakhir. Silakan masuk lagi.");
         return;
       }
       setPutus("Tidak tersambung ke gateway. Pastikan server di Raspberry Pi berjalan.");
@@ -68,33 +79,18 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     muat();
-    const t = setInterval(muat, 5000); // Polling data deteksi berkala
+    const t = setInterval(muat, 5000); // Polling data deteksi tiap 5 detik
     return () => clearInterval(t);
   }, [user, muat]);
 
-  // Load history whenever selected switch changes
-  useEffect(() => {
-    if (user && pilihan) {
-      api.riwayat(pilihan).then(setRiwayat).catch(() => setRiwayat([]));
-    }
-  }, [user, pilihan]);
-
   async function handleToggleAgent() {
-    if (user?.peran === "pengamat") return;
+    if (user?.peran === "pengamat" || user?.peran === "pengelola") return;
     try {
       const updated = await api.ubahAgen(agen.aktif ? "hentikan" : "aktifkan");
       setAgen(updated);
     } catch (err) {
-      console.error("Gagal mengubah status agen:", err);
+      alert("Gagal mengubah status agen: " + (err.message || ""));
     }
-  }
-
-  async function handleDecideWorkOrder(id, aksi, catatan) {
-    if (user?.peran === "pengamat") {
-      throw new Error("Akun pengamat hanya bisa melihat, tidak bisa mengubah keputusan.");
-    }
-    await api.putuskan(id, aksi, catatan);
-    await muat();
   }
 
   async function handleLogout() {
@@ -104,10 +100,27 @@ export default function App() {
       console.error("Gagal logout:", err);
     } finally {
       setUser(null);
+      setLoginMessage("");
     }
   }
 
-  // 3. Loading state while checking active session cookie
+  // Navigasi Terarah antar halaman
+  const handleNavigate = (pageId, params = {}) => {
+    if (params.weselId) {
+      setPilihan(params.weselId);
+    }
+    if (params.prompt || params.sessionId || params.history) {
+      setChatInitData({
+        prompt: params.prompt || null,
+        sessionId: params.sessionId || null,
+        history: params.history || null,
+      });
+    }
+    setActiveNav(pageId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 3. Loading state saat memeriksa sesi login awal
   if (checkingAuth) {
     return (
       <div className="auth-loading-screen">
@@ -122,22 +135,21 @@ export default function App() {
     );
   }
 
-  // 4. If not logged in, render the clean Login view
+  // 4. Jika belum masuk, tampilkan halaman Login
   if (!user) {
     return (
       <Login
+        initialMessage={loginMessage}
         onLoginSuccess={(userData) => {
           setUser(userData);
+          setLoginMessage("");
           muat();
         }}
       />
     );
   }
 
-  const currentWesel = wesel.find((x) => x.wesel_id === pilihan) || wesel[0];
-  const pendingCount = workOrders.filter((wo) => wo.status?.startsWith("MENUNGGU")).length;
-
-  // Filter wesel by search query if any
+  // Filter wesel jika ada search query
   const displayedWesel = wesel.filter((w) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -151,34 +163,35 @@ export default function App() {
 
   return (
     <div className="dashboard-container">
-      {/* Left Sidebar Rail */}
+      {/* Left Sidebar Rail (Navigasi Berdasarkan Peran) */}
       <Sidebar
         activeNav={activeNav}
-        onSelectNav={setActiveNav}
-        onOpenChat={() => setIsChatOpen(true)}
-        isAgentActive={agen.aktif}
+        onSelectNav={(id) => handleNavigate(id)}
+        user={user}
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
+      {/* Main Viewport */}
       <div className="main-viewport">
-        {/* Top Header */}
+        {/* Top Header (Pencarian, Koneksi, Kalender, Notifikasi, Sakelar Agen, Profil) */}
         <Header
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          pendingCount={pendingCount}
           isAgentActive={agen.aktif}
           onToggleAgent={handleToggleAgent}
-          onOpenNotifications={() => setIsChatOpen(true)}
           user={user}
           onLogout={handleLogout}
+          onSelectWesel={(id) => handleNavigate("detail", { weselId: id })}
+          onNavigate={handleNavigate}
         />
 
         {/* Read-Only Banner for Pengamat Account */}
         {user.peran === "pengamat" && (
           <div className="read-only-banner">
             <span className="read-only-tag">Mode Pengamat</span>
-            <span>Anda masuk dengan hak akses baca (*read-only*). Anda dapat melihat seluruh telemetri dan log agen, namun tidak dapat mengubah status atau memutuskan work order.</span>
+            <span>
+              Anda masuk dengan hak akses baca (<em>read-only</em>). Anda dapat memantau telemetri, grafik tren, dan laporan, namun tidak dapat mengubah status atau memutuskan work order.
+            </span>
           </div>
         )}
 
@@ -193,69 +206,62 @@ export default function App() {
           </div>
         )}
 
-        {/* Page Title & Subheader */}
-        <div className="page-subheader">
-          <div className="subheader-titles">
-            <h1 className="page-main-title">Performance Dashboard</h1>
-            <p className="page-main-subtitle">
-              A weekly snapshot of your clients' training load, recovery, and progress.
-            </p>
-          </div>
+        {/* Dynamic Page Views: Berpindah halaman bersih tanpa modal/card absolute */}
+        {activeNav === "beranda" && (
+          <BerandaPage
+            weselList={displayedWesel}
+            onSelectWesel={(id) => setPilihan(id)}
+            onNavigate={handleNavigate}
+            isAgentActive={agen.aktif}
+            user={user}
+          />
+        )}
 
-        </div>
+        {activeNav === "detail" && (
+          <DetailWeselPage
+            weselList={displayedWesel}
+            selectedWeselId={pilihan}
+            onSelectWesel={(id) => setPilihan(id)}
+            onNavigate={handleNavigate}
+            isAgentActive={agen.aktif}
+            user={user}
+          />
+        )}
 
-        {/* Dashboard Grid Layout */}
-        <main className="dashboard-grid">
-          {/* Top Row: 3 Cards */}
+        {activeNav === "chat" && (
+          <TanyaAgenPage
+            initialSessionId={chatInitData?.sessionId}
+            initialPrompt={chatInitData?.prompt}
+            initialHistory={chatInitData?.history}
+            isAgentActive={agen.aktif}
+            user={user}
+          />
+        )}
 
-          {/* Bottom Row: 2 Cards */}
-          <div className="grid-bottom-row">
-            <HistoryTableCard
-              weselList={displayedWesel}
-              selectedId={pilihan}
-              onSelectWesel={setPilihan}
-              onAnalyze={(id) => {
-                setPilihan(id);
-                setIsAnalysisModalOpen(true);
-              }}
-              workOrders={workOrders}
-              onDecideWorkOrder={handleDecideWorkOrder}
-              riwayat={riwayat}
-              isReadOnly={user.peran === "pengamat"}
-            />
+        {activeNav === "workorders" && (
+          <WorkOrdersPage
+            workOrders={workOrders}
+            onRefresh={muat}
+            user={user}
+          />
+        )}
 
-            <AutoRemindersCard
-              weselList={displayedWesel}
-              onOpenChat={() => setIsChatOpen(true)}
-              onAnalyze={(id) => {
-                if (id) setPilihan(id);
-                setIsAnalysisModalOpen(true);
-              }}
-              onSelectWesel={setPilihan}
-              selectedWeselId={pilihan}
-              isAgentActive={agen.aktif}
-              pendingCount={pendingCount}
-            />
-          </div>
-        </main>
+        {activeNav === "laporan" && (
+          <LaporanHarianPage />
+        )}
+
+        {activeNav === "dokumen" && (
+          <DokumenPage user={user} />
+        )}
+
+        {activeNav === "pengguna" && (
+          <PenggunaPage currentUser={user} />
+        )}
+
+        {activeNav === "profil" && (
+          <ProfilPage user={user} onLogout={handleLogout} />
+        )}
       </div>
-
-      {/* AI Chat Drawer */}
-      <AgentChatDrawer
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        isAgentActive={agen.aktif}
-        onActivityComplete={muat}
-      />
-
-      {/* Deep Telemetry & Agent Analysis Modal */}
-      <AgentAnalysisModal
-        isOpen={isAnalysisModalOpen}
-        onClose={() => setIsAnalysisModalOpen(false)}
-        wesel={currentWesel}
-        isAgentActive={agen.aktif}
-        onAnalysisDone={muat}
-      />
     </div>
   );
 }

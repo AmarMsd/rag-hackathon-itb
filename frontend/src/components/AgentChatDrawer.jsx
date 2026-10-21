@@ -1,31 +1,52 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { IconX, IconSend, IconSparkles } from "../Icons.jsx";
 import LogAgen from "../LogAgen.jsx";
 import Teks from "../Teks.jsx";
 import { api } from "../api.js";
+
+const DEFAULT_GREETING = [
+  {
+    dari: "agen",
+    teks: "Halo! Saya Tesi Asisten Sintelis. Tanyakan kondisi wesel, interpretasi getaran sensor, atau ketentuan regulasi PD 10A.",
+  },
+];
 
 export default function AgentChatDrawer({
   isOpen,
   onClose,
   isAgentActive = true,
   onActivityComplete,
+  messages: externalMessages,
+  setMessages: externalSetMessages,
+  sessionId: externalSessionId,
+  setSessionId: externalSetSessionId,
+  pendingPrompt,
+  onClearPendingPrompt,
 }) {
-  const [messages, setMessages] = useState([
-    {
-      dari: "agen",
-      teks: "Halo! Saya Tesi. Tanyakan kondisi wesel, interpretasi getaran sensor, atau ketentuan regulasi PD 10A.",
-    },
-  ]);
+  const [internalMessages, setInternalMessages] = useState(DEFAULT_GREETING);
+  const [internalSessionId, setInternalSessionId] = useState(null);
   const [input, setInput] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
 
-  if (!isOpen) return null;
+  const messagesEndRef = useRef(null);
+
+  const messages = externalMessages ?? internalMessages;
+  const setMessages = externalSetMessages ?? setInternalMessages;
+  const sessionId = externalSessionId ?? internalSessionId;
+  const setSessionId = externalSetSessionId ?? setInternalSessionId;
+
+  // Auto-scroll to bottom of chat when new messages or busy state appears
+  useEffect(() => {
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isBusy, isOpen]);
 
   const quickPrompts = [
     "Berapa batas waktu pembalikan lidah wesel?",
     "Bagaimana prosedur darurat bila wesel berstatus Bahaya?",
     "Jelaskan arti kenaikan nilai Kurtosis dan RMS getaran",
+    "Wesel mana yang harus segera diperbaiki?",
   ];
 
   const handleSend = async (textToSend) => {
@@ -58,6 +79,22 @@ export default function AgentChatDrawer({
     }
   };
 
+  // Auto-send pending prompt queued from AutoRemindersCard or other components
+  useEffect(() => {
+    if (isOpen && pendingPrompt) {
+      const promptToRun = pendingPrompt;
+      if (onClearPendingPrompt) onClearPendingPrompt();
+      handleSend(promptToRun);
+    }
+  }, [isOpen, pendingPrompt]);
+
+  const handleResetChat = () => {
+    setMessages(DEFAULT_GREETING);
+    setSessionId(null);
+  };
+
+  if (!isOpen) return null;
+
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <div
@@ -73,20 +110,41 @@ export default function AgentChatDrawer({
               <IconSparkles className="drawer-avatar-icon" />
             </div>
             <div>
-              <h3 className="drawer-title">Tesi Asisten</h3>
+              <div className="drawer-title-row">
+                <h3 className="drawer-title">Tesi Asisten</h3>
+                {sessionId && (
+                  <span className="drawer-session-tag" title={`ID Sesi: ${sessionId}`}>
+                    Sesi Aktif
+                  </span>
+                )}
+              </div>
               <p className="drawer-subtitle">
                 {isAgentActive ? "Siaga • Berbasis PD 10A & Manual KAI" : "Agen dinonaktifkan"}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="drawer-close-btn"
-            onClick={onClose}
-            aria-label="Tutup"
-          >
-            <IconX className="close-icon" />
-          </button>
+
+          <div className="drawer-header-actions">
+            {messages.length > 1 && (
+              <button
+                type="button"
+                className="drawer-reset-btn"
+                onClick={handleResetChat}
+                title="Mulai percakapan baru dan bersihkan sesi"
+              >
+                Percakapan Baru
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="drawer-close-btn"
+              onClick={onClose}
+              aria-label="Tutup"
+            >
+              <IconX className="close-icon" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Prompts */}
@@ -129,6 +187,7 @@ export default function AgentChatDrawer({
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Bar */}
