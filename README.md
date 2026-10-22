@@ -157,17 +157,8 @@ Antarmuka stasiun dirancang bersih menggunakan navigasi sidebar tanpa modal pop-
 7. **Pengelolaan Pengguna & Jejak Audit:** Tabel pengguna dengan badge peran, modal tambah/edit pengguna, reset sandi, proteksi lockout akun admin, dan linimasa 50 aktivitas audit sistem.
 8. **Profil Pengguna & Keamanan:** Rincian wewenang peran dinas dan formulir ganti kata sandi.
 
-### 6.2 Matriks Endpoint REST API Backend
-Semua permintaan klien diarahkan melalui proxy Vite `/api/...` dengan cookie sesi otomatis:
-* `POST /api/login` & `POST /api/logout`: Manajemen sesi autentikasi.
-* `GET /api/saya` & `POST /api/saya/ganti-sandi`: Profil akun dinas dan ubah kata sandi.
-* `GET /api/koneksi`: Pengecekan status gateway online/terbatas/offline beserta latensi ms.
-* `GET /api/wesel` & `GET /api/wesel/{id}/tren`: Telemetri dan data deret waktu degradasi harian.
-* `POST /api/wesel/{id}/analisis`: Menjalankan evaluasi agen preskriptif pada wesel terpilih.
-* `POST /api/chat`: Berinteraksi dalam percakapan interaktif dengan agen Sintelis.
-* `GET /api/work-orders`, `POST /api/work-orders/{id}/setujui`, `POST /api/work-orders/{id}/tolak`: Alur kerja persetujuan perintah kerja teknisi.
-* `GET /api/dokumen`, `POST /api/dokumen`, `POST /api/dokumen/{id}/aktifkan`: Tata kelola dokumen regulasi pengetahuan.
-* `GET /api/pengguna`, `POST /api/pengguna`, `GET /api/pengguna/audit`: Manajemen akun pengguna dan jejak audit aktivitas.
+### 6.2 Matriks Endpoint 
+Open Street Map
 
 ---
 
