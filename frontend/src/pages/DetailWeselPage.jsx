@@ -4,6 +4,7 @@ import Teks from "../Teks.jsx";
 import LogAgen from "../LogAgen.jsx";
 import { Lampu, Status, Indeks, Kelas } from "../components/Unsur.jsx";
 import { KondisiSel } from "./BerandaPage.jsx";
+import { muatPeta, teksLokasi } from "../peta.js";
 import { barisCiri, labelKondisi, labelSumber, lampu, waktuRelatif } from "../kondisi.js";
 
 function angka(v, d = 1) {
@@ -72,13 +73,16 @@ function GrafikTren({ tren }) {
   );
 }
 
-export default function DetailWeselPage({ wesel, pilihan, onPilih, agen, user, onSelesaiAnalisis }) {
+export default function DetailWeselPage({ wesel, pilihan, onPilih, agen, user, onNavigate, onSelesaiAnalisis }) {
   const w = wesel.find((x) => x.wesel_id === pilihan) || wesel[0];
   const id = w?.wesel_id;
   const [tren, setTren] = useState(null);
   const [riwayat, setRiwayat] = useState([]);
   const [analisis, setAnalisis] = useState({});
   const [sedang, setSedang] = useState(null);
+  const [lokasi, setLokasi] = useState({});
+
+  useEffect(() => { muatPeta().then((d) => setLokasi(d.titik)).catch(() => {}); }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -127,6 +131,12 @@ export default function DetailWeselPage({ wesel, pilihan, onPilih, agen, user, o
           <span>
             {labelSumber(w.sumber)}. Siklus terakhir {waktuRelatif(w.menit_sejak_siklus_terakhir)}{jam ? ` (${jam})` : ""}.
           </span>
+          {lokasi[id] && (
+            <span>
+              {teksLokasi(lokasi[id])}.{" "}
+              <button type="button" className="wg-tautan" onClick={() => onNavigate("peta")}>Lihat di peta</button>
+            </span>
+          )}
         </div>
         <button type="button" className="wg-tombol utama" onClick={jalankan} disabled={!bolehAnalisis || sedang === id}
           title={!agen.aktif ? "Agen sedang dihentikan" : !bolehAnalisis ? "Hanya admin dan petugas" : undefined}>

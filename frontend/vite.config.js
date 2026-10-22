@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: process.env.API_TARGET || "http://artemis.local:8080",
+	      target: process.env.API_TARGET || "http://192.168.16.5:8000",
         changeOrigin: true,
       },
     },

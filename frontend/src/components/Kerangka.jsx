@@ -8,6 +8,7 @@ import NotificationPopover from "./NotificationPopover.jsx";
 
 export const HALAMAN = [
   { id: "beranda", judul: "Beranda" },
+  { id: "peta", judul: "Peta wesel" },
   { id: "detail", judul: "Detail wesel" },
   { id: "workorders", judul: "Keputusan" },
   { id: "chat", judul: "Tanya agen", peran: ["admin", "petugas"] },

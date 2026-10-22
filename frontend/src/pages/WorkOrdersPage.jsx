@@ -52,7 +52,7 @@ function Usulan({ wo, bolehPutus, onPutus, onBukaWesel }) {
         bolehPutus ? (
           <>
             <div className="aksi">
-              <textarea className="wg-input" placeholder={eskalasi ? "Catatan untuk teknisi ahli (opsional)" : "Catatan petugas, wajib bila menolak"} value={catatan} onChange={(e) => setCatatan(e.target.value)} aria-label={`Catatan untuk ${wo.id}`} />
+              <textarea className="wg-input" placeholder={eskalasi ? "Catatan untuk teknisi ahli" : "Catatan petugas, wajib bila menolak"} value={catatan} onChange={(e) => setCatatan(e.target.value)} aria-label={`Catatan untuk ${wo.id}`} />
               <button type="button" className="wg-tombol setuju" disabled={!!kirim} onClick={() => putus("setujui")}>
                 {kirim === "setujui" ? "Menyimpan" : eskalasi ? "Terima eskalasi" : "Setujui"}
               </button>

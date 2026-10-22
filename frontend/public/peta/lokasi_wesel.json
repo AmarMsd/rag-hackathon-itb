@@ -1,0 +1,11 @@
+{
+  "keterangan": "Penempatan wesel yang dipantau pada titik wesel OpenStreetMap. Semua penempatan saat ini adalah ilustrasi: PM-01 adalah rig peniru dan W-xx adalah data simulasi. Ubah osm_id untuk memindahkan, set ilustrasi ke false hanya untuk sensor yang benar-benar terpasang di wesel tersebut.",
+  "wesel": {
+    "PM-01": { "osm_id": 2628273504, "stasiun": "Bandung", "ilustrasi": true },
+    "W-03": { "osm_id": 4167314291, "stasiun": "Kiaracondong", "ilustrasi": true },
+    "W-07": { "osm_id": 2628304779, "stasiun": "Cimahi", "ilustrasi": true },
+    "W-12": { "osm_id": 9963301086, "stasiun": "Gedebage", "ilustrasi": true },
+    "W-15": { "osm_id": 10692860963, "stasiun": "Padalarang", "ilustrasi": true },
+    "W-21": { "osm_id": 12090514895, "stasiun": "Cicalengka", "ilustrasi": true }
+  }
+}

@@ -4,6 +4,7 @@ import Login from "./components/Login.jsx";
 import { Nav, Atas, HALAMAN } from "./components/Kerangka.jsx";
 import BerandaPage from "./pages/BerandaPage.jsx";
 import DetailWeselPage from "./pages/DetailWeselPage.jsx";
+import PetaWeselPage from "./pages/PetaWeselPage.jsx";
 import TanyaAgenPage from "./pages/TanyaAgenPage.jsx";
 import WorkOrdersPage from "./pages/WorkOrdersPage.jsx";
 import LaporanHarianPage from "./pages/LaporanHarianPage.jsx";
@@ -117,6 +118,7 @@ export default function App() {
           {halaman === "beranda" && (
             <BerandaPage wesel={wesel} workOrders={workOrders} sudahMuat={sudahMuat} onNavigate={pindah} />
           )}
+          {halaman === "peta" && <PetaWeselPage wesel={wesel} onNavigate={pindah} />}
           {halaman === "detail" && (
             <DetailWeselPage wesel={wesel} pilihan={pilihan} onPilih={setPilihan} agen={agen} user={user} onNavigate={pindah} onSelesaiAnalisis={muat} />
           )}
