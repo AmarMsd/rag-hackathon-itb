@@ -11,3 +11,5 @@ frontend/node_modules/*
 hackathon/frontend
 frontend/node_modules/
 frontend/dist/
+hackathon/weselguard/.env
+hackathon/weselguard/.adk/session.db
